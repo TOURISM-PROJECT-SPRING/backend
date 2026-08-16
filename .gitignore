@@ -1,0 +1,27 @@
+# Compiled class file / Maven build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IDE files (VS Code, IntelliJ, Eclipse)
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+*.swp
+.DS_Store
+
+# Environment & Secret files
+.env
+.env.local
+.env.*.local
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.bak
