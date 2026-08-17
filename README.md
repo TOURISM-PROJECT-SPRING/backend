@@ -23,7 +23,8 @@ git clone <repo-url> spring_boot_project_api
 cd spring_boot_project_api
 rm -rf .git
 git init
-docker compose up -d --build
+docker compose up -d --build #create container in docker and run the project
+docker compose up -d  #use for run project after set already
 ```
 
 ### Prerequisites
