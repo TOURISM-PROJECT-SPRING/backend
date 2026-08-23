@@ -1,16 +1,15 @@
 package com.example.spring_boot_project_api.model;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -18,22 +17,28 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
-@Data
 @Entity
-@Table(name = "roles")
-public class Roles {
+@Data
+@Table(name = "place_images")
+public class PlaceImages {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, length = 100)
-    private String name;
-
-    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
+    
+    @Column(name = "image_url", length = 255)
+    private String ImageUrl;
+    
+    @Column(name = "is_primary")
+    private Boolean isPrimary;
+    
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "tourist_place_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private List<UserRoles> userRoles = new ArrayList<>();
-
+    private TourismPlaces tourismPlace;
+    
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

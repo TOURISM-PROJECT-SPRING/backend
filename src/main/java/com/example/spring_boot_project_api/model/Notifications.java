@@ -1,16 +1,15 @@
 package com.example.spring_boot_project_api.model;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -18,21 +17,32 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
-@Data
 @Entity
-@Table(name = "roles")
-public class Roles {
+@Data
+@Table(name = "notifications")
+public class Notifications {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, length = 100)
-    private String name;
+    @Column(name = "title", nullable = false, length = 150)
+    private String title;
 
-    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Column(name = "message", columnDefinition = "TEXT", nullable = false)
+    private String message;
+
+    @Column(name = "type", length = 50)
+    private String type;
+
+    @Column(name = "is_read", nullable = false)
+    private Boolean is_read = false;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private List<UserRoles> userRoles = new ArrayList<>();
+    private Users user;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -50,4 +60,4 @@ public class Roles {
     void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-}
+}   

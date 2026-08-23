@@ -1,5 +1,6 @@
 package com.example.spring_boot_project_api.model;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -7,9 +8,12 @@ import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -18,21 +22,44 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
-@Data
 @Entity
-@Table(name = "roles")
-public class Roles {
+@Data
+@Table(name = "foods")
+public class Foods {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "name", nullable = false, length = 200)
     private String name;
 
-    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Column(name = "price", nullable = false, length = 20)
+    private BigDecimal price;
+
+    @Column(name = "image", nullable = false, length = 255)
+    private String image;
+
+    @Column(name = "is_available", nullable = false, length = 20)
+    private Boolean isAvailable;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "restraurant_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private List<UserRoles> userRoles = new ArrayList<>();
+    private Restaurants restaurants;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "food_category_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private FoodCategories foodCategories;
+    
+    @OneToMany(mappedBy = "food", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<FoodOrderItems> foodOrderItems = new ArrayList<>();
+
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -40,6 +67,7 @@ public class Roles {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    // use for auto time(create and update)
     @PrePersist
     void onCreate() {
         createdAt = LocalDateTime.now();

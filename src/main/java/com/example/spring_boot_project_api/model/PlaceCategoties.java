@@ -18,22 +18,26 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
-@Data
 @Entity
-@Table(name = "roles")
-public class Roles {
+@Data
+@Table(name = "place_categories")
+public class PlaceCategoties {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "name", nullable = false, length = 100)
+    
+    @Column(name = "name", nullable = false, length = 150)
     private String name;
 
-    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Column(name = "image", length = 255)
+    private String image;
+
+    @OneToMany(mappedBy = "placeCategory", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private List<UserRoles> userRoles = new ArrayList<>();
-
+    private List<TourismPlaces> tourismPlaces = new ArrayList<>();
+    
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

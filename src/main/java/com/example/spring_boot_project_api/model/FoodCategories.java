@@ -18,21 +18,22 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
-@Data
 @Entity
-@Table(name = "roles")
-public class Roles {
+@Data
+@Table(name = "food_categories")
+public class FoodCategories {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "name",nullable = false, length = 150)
     private String name;
 
-    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "foodcategory", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private List<UserRoles> userRoles = new ArrayList<>();
+    private List<Foods> foods = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -50,4 +51,5 @@ public class Roles {
     void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
 }
