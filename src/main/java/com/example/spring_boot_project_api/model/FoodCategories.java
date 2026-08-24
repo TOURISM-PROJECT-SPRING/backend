@@ -30,7 +30,7 @@ public class FoodCategories {
     @Column(name = "name",nullable = false, length = 150)
     private String name;
 
-    @OneToMany(mappedBy = "foodcategory", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "foodCategories", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Foods> foods = new ArrayList<>();

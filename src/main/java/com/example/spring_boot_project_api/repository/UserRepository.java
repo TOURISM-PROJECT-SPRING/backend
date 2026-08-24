@@ -19,10 +19,10 @@ public interface UserRepository extends JpaRepository<Users, Long> {
     Optional<Users> findByEmail(String email);
 
     // check username have already or not
-    boolean exitByUsername(String Username);
+    boolean existsByUsername(String username);
 
     // check email have already or not
-    boolean exitByEmail(String Email);
+    boolean existsByEmail(String email);
 
     // find by status
     List<Users> findByStatus(UserEnum status);

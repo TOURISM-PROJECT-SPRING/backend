@@ -54,22 +54,17 @@ public class Restaurants {
     @EqualsAndHashCode.Exclude
     private List<Reviews> reviews = new ArrayList<>();
 
-    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "restraurants", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Promotions> promotions = new ArrayList<>();
 
-    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "restaurants", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Foods> foods = new ArrayList<>();
 
-    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<Hotels> Hotels = new ArrayList<>();
-
-    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "restuarants", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Favorites> favorites = new ArrayList<>();

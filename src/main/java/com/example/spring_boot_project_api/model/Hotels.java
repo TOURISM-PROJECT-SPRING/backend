@@ -56,7 +56,7 @@ public class Hotels {
     @EqualsAndHashCode.Exclude
     private List<Reviews> reviews = new ArrayList<>();
 
-    @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "hotels", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Favorites> favorites = new ArrayList<>();

@@ -55,7 +55,7 @@ public class Foods {
     @EqualsAndHashCode.Exclude
     private FoodCategories foodCategories;
     
-    @OneToMany(mappedBy = "food", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "foods", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<FoodOrderItems> foodOrderItems = new ArrayList<>();

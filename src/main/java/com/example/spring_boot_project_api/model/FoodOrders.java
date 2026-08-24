@@ -52,12 +52,12 @@ public class FoodOrders {
     @EqualsAndHashCode.Exclude
     private Restaurants restuarants;
 
-    @OneToMany(mappedBy = "foodOrder", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "foodOrders", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<FoodOrderItems> foodOrderItems = new ArrayList<>();
 
-    @OneToMany(mappedBy = "foodOrder", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "foodOrders", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Payments> payments = new ArrayList<>();

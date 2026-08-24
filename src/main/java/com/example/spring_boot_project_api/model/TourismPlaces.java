@@ -100,7 +100,7 @@ public class TourismPlaces {
     @EqualsAndHashCode.Exclude
     private List<Restaurants> restaurants = new ArrayList<>();
 
-    @OneToMany(mappedBy = "tourismPlace", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "touristPlace", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Reviews> reviews = new ArrayList<>();
