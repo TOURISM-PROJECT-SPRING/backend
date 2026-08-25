@@ -36,7 +36,7 @@ public class Notifications {
     private String type;
 
     @Column(name = "is_read", nullable = false)
-    private Boolean is_read = false;
+    private Boolean isRead = false;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)

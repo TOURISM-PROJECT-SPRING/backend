@@ -49,7 +49,7 @@ public class TourBookings {
     @EqualsAndHashCode.Exclude
     private TourPackages tourPackages;
 
-    @OneToMany(mappedBy = "tourBooking", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "tourBookings", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Payments> payments = new ArrayList<>();

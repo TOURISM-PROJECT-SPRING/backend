@@ -60,7 +60,7 @@ public class TicketBookings {
     @EqualsAndHashCode.Exclude
     private Tickets tickets;
 
-    @OneToMany(mappedBy = "ticketBooking", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "ticketBookings", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Payments> payments = new ArrayList<>();

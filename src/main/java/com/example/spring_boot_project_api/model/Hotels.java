@@ -46,7 +46,7 @@ public class Hotels {
     @EqualsAndHashCode.Exclude
     private TourismPlaces tourismPlaces;
 
-    @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "hotels", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Promotions> promotions = new ArrayList<>();
@@ -61,7 +61,7 @@ public class Hotels {
     @EqualsAndHashCode.Exclude
     private List<Favorites> favorites = new ArrayList<>();
 
-    @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "hotels", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Rooms> rooms = new ArrayList<>();

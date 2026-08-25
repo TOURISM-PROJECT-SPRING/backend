@@ -33,7 +33,7 @@ public class RoomTypes {
     @Column(name = "capacity",nullable = false)
     private Integer capacity;
 
-    @OneToMany(mappedBy = "roomType", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "roomTypes", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Rooms> rooms = new ArrayList<>();

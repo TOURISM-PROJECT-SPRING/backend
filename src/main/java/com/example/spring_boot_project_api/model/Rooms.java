@@ -52,7 +52,7 @@ public class Rooms {
     @EqualsAndHashCode.Exclude
     private RoomTypes roomTypes;
 
-    @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "rooms", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<RoomBookings> roomBookings = new ArrayList<>();

@@ -33,7 +33,7 @@ public class PlaceCategoties {
     @Column(name = "image", length = 255)
     private String image;
 
-    @OneToMany(mappedBy = "placeCategory", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "placeCategoty", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<TourismPlaces> tourismPlaces = new ArrayList<>();
