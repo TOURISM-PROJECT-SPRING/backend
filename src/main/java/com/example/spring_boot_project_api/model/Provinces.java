@@ -33,12 +33,12 @@ public class Provinces {
     @Column(name = "image", length = 255)
     private String image;
 
-    @OneToMany(mappedBy = "province", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "provinces", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Districts> districts = new ArrayList<>();
 
-    @OneToMany(mappedBy = "tourPackage", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "provinces", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<TourPackages> tourPackages = new ArrayList<>();

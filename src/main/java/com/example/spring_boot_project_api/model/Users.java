@@ -78,7 +78,7 @@ public class Users {
     @EqualsAndHashCode.Exclude
     private List<TourismPlaces> tourismPlaces = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "users", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<BusinesssOwnerProfiles> businesssOwnerProfiles = new ArrayList<>();

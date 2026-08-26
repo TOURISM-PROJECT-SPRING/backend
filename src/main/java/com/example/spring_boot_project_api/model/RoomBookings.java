@@ -59,7 +59,7 @@ public class RoomBookings {
     @EqualsAndHashCode.Exclude
     private Rooms rooms;
 
-    @OneToMany(mappedBy = "roomBooking", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "roomBookings", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Payments> payments = new ArrayList<>();

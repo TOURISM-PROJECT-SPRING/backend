@@ -58,17 +58,17 @@ public class TourPackages {
     @EqualsAndHashCode.Exclude
     private TourGuides toureGuides;
 
-    @OneToMany(mappedBy = "tourPackage", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "tourPackages", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Favorites> favorites = new ArrayList<>();
 
-    @OneToMany(mappedBy = "tourPackage", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "tourPackages", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<TourBookings> tourBookings = new ArrayList<>();
 
-    @OneToMany(mappedBy = "tourPackage", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "tourPackages", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Promotions> promotions = new ArrayList<>();
@@ -78,7 +78,7 @@ public class TourPackages {
     @EqualsAndHashCode.Exclude
     private List<Reviews> reviews = new ArrayList<>();
 
-    @OneToMany(mappedBy = "tourPackage", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "tourPackages", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<TourPackageStops> tourPackageStops = new ArrayList<>();

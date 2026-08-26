@@ -75,27 +75,27 @@ public class TourismPlaces {
     @EqualsAndHashCode.Exclude
     private List<PlaceImages> placeImages = new ArrayList<>();
 
-    @OneToMany(mappedBy = "tourismPlace", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "tourismPlaces", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Tickets> tickets = new ArrayList<>();
 
-    @OneToMany(mappedBy = "tourismPlace", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "tourismPlaces", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Favorites> favorites = new ArrayList<>();
 
-    @OneToMany(mappedBy = "tourismPlace", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "tourismPlaces", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<TourPackageStops> tourPackageStops = new ArrayList<>();
 
-    @OneToMany(mappedBy = "tourismPlace", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "tourismPlaces", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Hotels> hotels = new ArrayList<>();
 
-    @OneToMany(mappedBy = "tourismPlace", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "tourismPlaces", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Restaurants> restaurants = new ArrayList<>();
