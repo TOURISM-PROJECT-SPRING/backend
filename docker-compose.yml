@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: tourism_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: tourism
+      POSTGRES_PASSWORD: 1234
 
     ports:
       - "5432:5432"

@@ -1,10 +1,8 @@
 package com.example.spring_boot_project_api.model;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -13,7 +11,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -23,43 +20,33 @@ import lombok.ToString;
 
 @Entity
 @Data
-@Table(name = "hotels")
-public class Hotels {
+@Table(name = "hotel_rooms")
+public class HotelRooms {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "hotel_name", nullable = false, length = 200)
-    private String hotelName;
-
-    @Column(name = "phone_contact", length = 30)
-    private String phoneContact;
-
-    @Column(name = "email_contact", length = 200)
-    private String emailContact;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "hotel_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Hotels hotels;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "location_id", nullable = false)
+    @JoinColumn(name = "room_type_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private Districts location;
+    private RoomTypes roomTypes;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private Users owner;
+    @Column(name = "total_room", nullable = false)
+    private Integer totalRoom;
 
-    @OneToMany(mappedBy = "hotels", cascade = CascadeType.ALL, orphanRemoval = true)
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<Rooms> rooms = new ArrayList<>();
+    @Column(name = "capacity", nullable = false)
+    private Integer capacity;
 
-    @OneToMany(mappedBy = "hotels", cascade = CascadeType.ALL, orphanRemoval = true)
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<HotelRooms> hotelRooms = new ArrayList<>();
+    @Column(name = "price_per_night", nullable = false)
+    private BigDecimal pricePerNight;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

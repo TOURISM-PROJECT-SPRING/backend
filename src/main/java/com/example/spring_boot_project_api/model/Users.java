@@ -83,6 +83,11 @@ public class Users {
     @EqualsAndHashCode.Exclude
     private List<BusinesssOwnerProfiles> businesssOwnerProfiles = new ArrayList<>();
 
+    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Hotels> hotels = new ArrayList<>();
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
