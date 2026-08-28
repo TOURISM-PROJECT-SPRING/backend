@@ -23,5 +23,7 @@ public interface RoomBookingService {
 
     RoomBookingResponse update(Long id, RoomBookingRequest request);
 
+    RoomBookingResponse cancel(Long id);
+
     void delete(Long id);
 }

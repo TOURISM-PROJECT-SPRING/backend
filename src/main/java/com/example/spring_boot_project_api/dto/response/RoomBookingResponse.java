@@ -26,6 +26,7 @@ public class RoomBookingResponse {
     private LocalDate checkIn;
     private LocalDate checkOut;
     private String paymentMethod;
+    private BigDecimal pricePerNight;
     private BigDecimal amount;
     private String status;
     private LocalDateTime createdAt;

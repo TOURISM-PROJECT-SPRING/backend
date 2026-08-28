@@ -70,6 +70,11 @@ public class RoomBookingController {
         return ResponseEntity.ok(roomBookingService.update(id, request));
     }
 
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<RoomBookingResponse> cancel(@PathVariable Long id) {
+        return ResponseEntity.ok(roomBookingService.cancel(id));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         roomBookingService.delete(id);
