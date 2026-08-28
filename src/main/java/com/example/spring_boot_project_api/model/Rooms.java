@@ -1,6 +1,5 @@
 package com.example.spring_boot_project_api.model;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,21 +23,12 @@ import lombok.ToString;
 
 @Entity
 @Data
-@Table(name = "Rooms")
+@Table(name = "rooms")
 public class Rooms {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "roomNumber", nullable = false, length = 150)
-    private String roomNumber;
-
-    @Column(name = "price_per_night", nullable = false, length = 15)
-    private BigDecimal pricePerNight;
-
-    @Column(name = "status", nullable = false, length = 30)
-    private String status;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "hotel_id", nullable = false)

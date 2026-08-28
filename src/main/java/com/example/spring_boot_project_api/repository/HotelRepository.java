@@ -1,6 +1,5 @@
 package com.example.spring_boot_project_api.repository;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,13 +11,13 @@ import com.example.spring_boot_project_api.model.Hotels;
 @Repository
 public interface HotelRepository extends JpaRepository<Hotels, Long> {
 
-    Optional<Hotels> findByName(String name);
+    Optional<Hotels> findByHotelName(String hotelName);
 
-    boolean existsByName(String name);
+    boolean existsByHotelName(String hotelName);
 
-    List<Hotels> findByNameContainingIgnoreCase(String keyword);
+    List<Hotels> findByHotelNameContainingIgnoreCase(String keyword);
 
-    List<Hotels> findByTourismPlacesId(Long tourismPlaceId);
+    List<Hotels> findByLocationId(Long districtId);
 
-    List<Hotels> findByStarRatingGreaterThanEqualOrderByStarRatingDesc(BigDecimal minStarRating);
+    List<Hotels> findByOwnerId(Long ownerId);
 }

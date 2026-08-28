@@ -93,11 +93,6 @@ public class TourismPlaces {
     @OneToMany(mappedBy = "tourismPlaces", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private List<Hotels> hotels = new ArrayList<>();
-
-    @OneToMany(mappedBy = "tourismPlaces", cascade = CascadeType.ALL, orphanRemoval = true)
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
     private List<Restaurants> restaurants = new ArrayList<>();
 
     @OneToMany(mappedBy = "touristPlace", cascade = CascadeType.ALL, orphanRemoval = true)

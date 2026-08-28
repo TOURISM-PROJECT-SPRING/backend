@@ -25,27 +25,30 @@ import lombok.ToString;
 
 @Entity
 @Data
-@Table(name = "Room_Bookings")
+@Table(name = "tb_booking_hotel")
 public class RoomBookings {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "check_in",nullable = false, updatable = false)
+    @Column(name = "num_guest", nullable = false)
+    private Integer numGuest;
+
+    @Column(name = "check_in", nullable = false)
     private LocalDate checkIn;
 
     @Column(name = "check_out", nullable = false)
-    private LocalDate CheckOut;
+    private LocalDate checkOut;
 
-    @Column(name = "total_price", nullable = false, length = 15)
-    private BigDecimal totalPrice;
+    @Column(name = "payment_method", length = 70)
+    private String paymentMethod;
+
+    @Column(name = "amount", nullable = false)
+    private BigDecimal amount;
 
     @Column(name = "status", nullable = false, length = 30)
     private String status;
-
-    @Column(name = "qr_code", nullable = false)
-    private String qrCode;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
@@ -63,7 +66,7 @@ public class RoomBookings {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Payments> payments = new ArrayList<>();
-    
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

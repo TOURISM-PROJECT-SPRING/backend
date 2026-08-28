@@ -27,16 +27,21 @@ public class RoomTypes {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, unique = true)
-    private String name;
+    @Column(name = "room_type", nullable = false, length = 100)
+    private String roomType;
 
-    @Column(name = "capacity",nullable = false)
+    @Column(name = "capacity", nullable = false)
     private Integer capacity;
 
     @OneToMany(mappedBy = "roomTypes", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Rooms> rooms = new ArrayList<>();
+
+    @OneToMany(mappedBy = "roomTypes", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<HotelRooms> hotelRooms = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
