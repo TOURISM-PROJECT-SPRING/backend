@@ -1,5 +1,7 @@
 package com.example.spring_boot_project_api.dto.request;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -13,6 +15,6 @@ public class ProvinceRequest {
     @Size(max = 200, message = "Name must not exceed 200 characters")
     private String name;
 
-    @Size(max = 255, message = "Image must not exceed 255 characters")
-    private String image;
+    // @Size(max = 255, message = "Image must not exceed 255 characters")
+    private MultipartFile image;
 }

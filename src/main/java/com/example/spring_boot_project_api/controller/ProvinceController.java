@@ -1,6 +1,6 @@
 package com.example.spring_boot_project_api.controller;
 
-import java.io.IOException;
+// import java.io.IOException;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -15,10 +15,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 
 import com.example.spring_boot_project_api.dto.request.ProvinceRequest;
 import com.example.spring_boot_project_api.dto.response.ProvinceResponse;
-import com.example.spring_boot_project_api.service.CloudinaryService;
+// import com.example.spring_boot_project_api.service.CloudinaryService;
 import com.example.spring_boot_project_api.service.ProvinceService;
 
 import jakarta.validation.Valid;
@@ -30,7 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class ProvinceController {
 
     private final ProvinceService provinceService;
-    private final CloudinaryService cloudinaryService;
+    // private final CloudinaryService cloudinaryService;
 
     @GetMapping
     public ResponseEntity<List<ProvinceResponse>> findAll() {
@@ -43,29 +44,27 @@ public class ProvinceController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<ProvinceResponse>> search(@RequestParam String keyword) {
-        return ResponseEntity.ok(provinceService.search(keyword));
+    public ResponseEntity<List<ProvinceResponse>> searchProvinces(@RequestParam("keyword") String keyword) {
+        List<ProvinceResponse> response = provinceService.search(keyword);
+        return ResponseEntity.ok(response);
     }
 
-    @PostMapping(consumes = "multipart/form-data")
+   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProvinceResponse> create(
             @Valid @ModelAttribute ProvinceRequest request,
-            @RequestParam(value = "image", required = false) MultipartFile image) throws IOException {
-        if (image != null && !image.isEmpty()) {
-            request.setImage(cloudinaryService.uploadImage(image));
-        }
-        return ResponseEntity.status(HttpStatus.CREATED).body(provinceService.create(request));
+            @RequestParam(value = "image", required = false) MultipartFile image) {
+        ProvinceResponse response = provinceService.create(request, image);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @PutMapping(value = "/{id}", consumes = "multipart/form-data")
     public ResponseEntity<ProvinceResponse> update(
             @PathVariable Long id,
             @Valid @ModelAttribute ProvinceRequest request,
-            @RequestParam(value = "image", required = false) MultipartFile image) throws IOException {
-        if (image != null && !image.isEmpty()) {
-            request.setImage(cloudinaryService.uploadImage(image));
-        }
-        return ResponseEntity.ok(provinceService.update(id, request));
+            @RequestParam(value = "image", required = false) MultipartFile image) {
+        
+        ProvinceResponse response = provinceService.update(id, request, image);
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{id}")

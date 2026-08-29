@@ -29,7 +29,7 @@ public class ProvinceMapper {
     public static Provinces toEntity(ProvinceRequest request) {
         Provinces entity = new Provinces();
         entity.setName(request.getName());
-        entity.setImage(request.getImage());
+        // entity.setImageFile(request.getImageFile());
         return entity;
     }
 }

@@ -15,5 +15,5 @@ public interface ProvinceRepository extends JpaRepository<Provinces, Long> {
 
     boolean existsByName(String name);
 
-    List<Provinces> findByNameContainingIgnoreCase(String keyword);
+    List<Provinces> findByNameContainingIgnoreCase(String name);
 }
