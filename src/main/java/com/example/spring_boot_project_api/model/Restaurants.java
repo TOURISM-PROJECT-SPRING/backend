@@ -69,6 +69,11 @@ public class Restaurants {
     @EqualsAndHashCode.Exclude
     private List<Favorites> favorites = new ArrayList<>();
 
+    @OneToMany(mappedBy = "restaurants", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Carts> carts = new ArrayList<>();
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

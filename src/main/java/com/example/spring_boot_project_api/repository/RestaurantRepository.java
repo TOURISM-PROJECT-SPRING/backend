@@ -15,5 +15,7 @@ public interface RestaurantRepository extends JpaRepository<Restaurants, Long> {
 
     List<Restaurants> findByTourismPlacesId(Long tourismPlaceId);
 
+    boolean existsByName(String name);
+
     List<Restaurants> findByOpenTimeBeforeAndClossTimeAfter(LocalTime time, LocalTime sameTime);
 }

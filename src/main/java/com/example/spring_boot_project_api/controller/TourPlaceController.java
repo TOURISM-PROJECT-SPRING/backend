@@ -2,16 +2,18 @@ package com.example.spring_boot_project_api.controller;
 import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import com.example.spring_boot_project_api.dto.request.TourPlaceRequestDTO;
 import com.example.spring_boot_project_api.dto.response.TourPlaceResponseDTO;
 import com.example.spring_boot_project_api.service.TourPlaceService;
@@ -26,9 +28,11 @@ public class TourPlaceController {
 
     private final TourPlaceService tourPlaceService;
 
-    @PostMapping
-    public ResponseEntity<TourPlaceResponseDTO> create(@Valid @RequestBody TourPlaceRequestDTO request) {
-        TourPlaceResponseDTO response = tourPlaceService.create(request);
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<TourPlaceResponseDTO> create(
+            @Valid @ModelAttribute TourPlaceRequestDTO request,
+            @RequestParam(value = "images", required = false) MultipartFile[] images) {
+        TourPlaceResponseDTO response = tourPlaceService.create(request, images);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -42,15 +46,42 @@ public class TourPlaceController {
         return ResponseEntity.ok(tourPlaceService.getAll());
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<TourPlaceResponseDTO> update(@PathVariable Long id, @Valid @RequestBody TourPlaceRequestDTO request) {
-        return ResponseEntity.ok(tourPlaceService.update(id, request));
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<TourPlaceResponseDTO> update(
+            @PathVariable Long id,
+            @Valid @ModelAttribute TourPlaceRequestDTO request,
+            @RequestParam(value = "images", required = false) MultipartFile[] images) {
+        return ResponseEntity.ok(tourPlaceService.update(id, request, images));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         tourPlaceService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping(value = "/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<TourPlaceResponseDTO> addImages(
+            @PathVariable Long id,
+            @RequestParam(value = "images", required = true) MultipartFile[] images) {
+        return ResponseEntity.ok(tourPlaceService.addImages(id, images));
+    }
+
+    @DeleteMapping("/{id}/images/{imageId}")
+    public ResponseEntity<TourPlaceResponseDTO> removeImage(@PathVariable Long id,
+                                                            @PathVariable Long imageId) {
+        return ResponseEntity.ok(tourPlaceService.removeImage(id, imageId));
+    }
+
+    @DeleteMapping("/{id}/images")
+    public ResponseEntity<TourPlaceResponseDTO> clearImages(@PathVariable Long id) {
+        return ResponseEntity.ok(tourPlaceService.clearImages(id));
+    }
+
+    @PostMapping("/{id}/images/{imageId}/primary")
+    public ResponseEntity<TourPlaceResponseDTO> setPrimaryImage(@PathVariable Long id,
+                                                                @PathVariable Long imageId) {
+        return ResponseEntity.ok(tourPlaceService.setPrimaryImage(id, imageId));
     }
 
     @GetMapping("/search")

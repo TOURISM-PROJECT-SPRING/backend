@@ -63,6 +63,24 @@ The API will be available at `http://localhost:8080`, and Swagger UI at
 ./mvnw test
 ```
 
+## Seed data
+
+On first boot with an empty database, `config/DataSeeder.java` auto-populates the DB with realistic
+Khmer tourism data (25 provinces, 35 districts, 22 tourism places, 7 hotels, 6 restaurants, 19 foods,
+tour packages, tickets, users, bookings, promotions and reviews). It is skipped automatically once
+data already exists.
+
+Demo accounts (all use the password `khmer@123`):
+
+| Username   | Role       |
+| ---------- | ---------- |
+| `admin`    | ADMIN      |
+| `sopheak`  | OWNER      |
+| `leakhana` | OWNER      |
+| `ratha`    | TOUR_GUIDE |
+| `dara`     | CUSTOMER   |
+| `sokha`    | CUSTOMER   |
+
 ## Project structure
 
 See [`agent_guide_ai.md`](agent_guide_ai.md) for the full folder layout and coding conventions
