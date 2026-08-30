@@ -59,10 +59,6 @@ public class Users {
     @Column(name = "status")
     private UserEnum status = UserEnum.Online;
 
-    // this column use for store profile image of user
-    @Column(name = "avatar_url", length = 255)
-    private String avatarUrl;
-
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude

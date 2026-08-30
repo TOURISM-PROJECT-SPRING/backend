@@ -85,7 +85,7 @@ public class TourPlaceMapper {
                 .id(user.getId())
                 .fullname(user.getFullname())
                 .email(user.getEmail())
-                .avatarUrl(user.getAvatarUrl())
+                // .avatarUrl(user.getAvatarUrl())
                 .build();
     }
 
