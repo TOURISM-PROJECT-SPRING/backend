@@ -40,12 +40,12 @@ public class ProvinceServiceImpl implements ProvinceService {
     }
 
     @Override
-    public ProvinceResponse create(ProvinceRequest request , MultipartFile image) {
+    public ProvinceResponse create(ProvinceRequest request, MultipartFile image) {
         Provinces province = ProvinceMapper.toEntity(request);
 
-        if (request.getImage() != null && !request.getImage().isEmpty()) {
+        if (image != null && !image.isEmpty()) {
             try {
-                String imageUrl = cloudinaryService.uploadImage(request.getImage());
+                String imageUrl = cloudinaryService.uploadImage(image);
                 province.setImage(imageUrl);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to upload image: " + e.getMessage());
@@ -63,9 +63,9 @@ public class ProvinceServiceImpl implements ProvinceService {
 
         province.setName(request.getName());
 
-        if (request.getImage() != null && !request.getImage().isEmpty()) {
+        if (image != null && !image.isEmpty()) {
             try {
-                String imageUrl = cloudinaryService.uploadImage(request.getImage());
+                String imageUrl = cloudinaryService.uploadImage(image);
                 province.setImage(imageUrl);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to upload image: " + e.getMessage());

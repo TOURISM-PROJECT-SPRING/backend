@@ -44,6 +44,9 @@ public class TicketBookings {
     @Column(name = "status", nullable = false, length = 30)
     private String status;
 
+    @Column(name = "payment_method", length = 70)
+    private String paymentMethod;
+
     @Column(name = "qr_code", nullable = false)
     private String qrCode;
     
