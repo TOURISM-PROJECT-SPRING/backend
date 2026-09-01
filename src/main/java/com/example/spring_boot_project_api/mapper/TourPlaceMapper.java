@@ -1,21 +1,18 @@
 package com.example.spring_boot_project_api.mapper;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.example.spring_boot_project_api.dto.request.TourPlaceRequestDTO;
 import com.example.spring_boot_project_api.dto.response.TourPlaceResponseDTO;
-import com.example.spring_boot_project_api.model.Districts;
+import com.example.spring_boot_project_api.model.Location;
 import com.example.spring_boot_project_api.model.PlaceCategoties;
-import com.example.spring_boot_project_api.model.PlaceImages;
-import com.example.spring_boot_project_api.model.Provinces;
-import com.example.spring_boot_project_api.model.TourismPlaces;
+import com.example.spring_boot_project_api.model.TourPlaces;
 import com.example.spring_boot_project_api.model.Users;
 
 public class TourPlaceMapper {
 
-    public static TourismPlaces toEntity(TourPlaceRequestDTO request, PlaceCategoties category, Users user, Districts district) {
-        TourismPlaces place = new TourismPlaces();
+    public static TourPlaces toEntity(TourPlaceRequestDTO request, PlaceCategoties category, Users user, Location district) {
+        TourPlaces place = new TourPlaces();
         place.setName(request.getName());
         place.setDescription(request.getDescription());
         place.setAddress(request.getAddress());
@@ -29,7 +26,7 @@ public class TourPlaceMapper {
         return place;
     }
 
-    public static void toEntity(TourismPlaces place, TourPlaceRequestDTO request, PlaceCategoties category, Users user, Districts district) {
+    public static void toEntity(TourPlaces place, TourPlaceRequestDTO request, PlaceCategoties category, Users user, Location district) {
         place.setName(request.getName());
         place.setDescription(request.getDescription());
         place.setAddress(request.getAddress());
@@ -42,7 +39,7 @@ public class TourPlaceMapper {
         place.setDistrict(district);
     }
 
-    public static TourPlaceResponseDTO toResponse(TourismPlaces place) {
+    public static TourPlaceResponseDTO toResponse(TourPlaces place) {
         if (place == null) return null;
 
         return TourPlaceResponseDTO.builder()
@@ -57,13 +54,12 @@ public class TourPlaceMapper {
                 .placeCategory(toCategoryInfo(place.getPlaceCategoty()))
                 .user(toUserInfo(place.getUser()))
                 .district(toDistrictInfo(place.getDistrict()))
-                .placeImages(toImageInfoList(place.getPlaceImages()))
                 .createdAt(place.getCreatedAt())
                 .updatedAt(place.getUpdatedAt())
                 .build();
     }
 
-    public static List<TourPlaceResponseDTO> toResponseList(List<TourismPlaces> places) {
+    public static List<TourPlaceResponseDTO> toResponseList(List<TourPlaces> places) {
         if (places == null) return Collections.emptyList();
         return places.stream()
                 .map(TourPlaceMapper::toResponse)
@@ -89,31 +85,20 @@ public class TourPlaceMapper {
                 .build();
     }
 
-    private static TourPlaceResponseDTO.DistrictInfo toDistrictInfo(Districts district) {
+    private static TourPlaceResponseDTO.DistrictInfo toDistrictInfo(Location district) {
         if (district == null) return null;
         return TourPlaceResponseDTO.DistrictInfo.builder()
                 .id(district.getId())
-                .name(district.getName())
-                .province(toProvinceInfo(district.getProvinces()))
+                .name(district.getDistrict())
+                .province(toProvinceInfo(district))
                 .build();
     }
 
-    private static TourPlaceResponseDTO.ProvinceInfo toProvinceInfo(Provinces province) {
-        if (province == null) return null;
+    private static TourPlaceResponseDTO.ProvinceInfo toProvinceInfo(Location district) {
+        if (district == null) return null;
         return TourPlaceResponseDTO.ProvinceInfo.builder()
-                .id(province.getId())
-                .name(province.getName())
+                .id(district.getId())
+                .name(district.getProvince())
                 .build();
-    }
-
-    private static List<TourPlaceResponseDTO.PlaceImageInfo> toImageInfoList(List<PlaceImages> images) {
-        if (images == null) return new ArrayList<>();
-        return images.stream()
-                .map(img -> TourPlaceResponseDTO.PlaceImageInfo.builder()
-                        .id(img.getId())
-                        .imageUrl(img.getImageUrl())
-                        .isPrimary(img.getIsPrimary())
-                        .build())
-                .collect(Collectors.toList());
     }
 }

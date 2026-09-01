@@ -1,10 +1,7 @@
 package com.example.spring_boot_project_api.model;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -13,36 +10,41 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
 @Entity
 @Data
-@Table(name = "districts")
-public class Districts {
+@Table(name = "tour_place_attachments",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"tour_place_id", "attachments_id"}))
+public class TourPlaceAttachments {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, length = 200)
-    private String name;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "tour_place_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private TourPlaces tourPlaces;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "province_id", nullable = false)
+    @JoinColumn(name = "attachments_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private Provinces provinces;
+    private Attachments attachments;
 
-    @OneToMany(mappedBy = "district", cascade = CascadeType.ALL, orphanRemoval = true)
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<TourismPlaces> tourismPlaces = new ArrayList<>();
+    @Column(name = "type", length = 50)
+    private String type;
+
+    @Column(name = "sort_order")
+    private Integer sortOrder = 0;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -52,8 +54,11 @@ public class Districts {
 
     @PrePersist
     void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = createdAt;
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
     }
 
     @PreUpdate

@@ -36,7 +36,7 @@ public class Favorites {
     @JoinColumn(name = "tourism_place_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private TourismPlaces tourismPlaces;
+    private TourPlaces tourismPlaces;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "hotal_id", nullable = false)

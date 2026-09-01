@@ -23,7 +23,7 @@ import com.example.spring_boot_project_api.dto.response.TicketBookingResponse;
 import com.example.spring_boot_project_api.mapper.TicketBookingMapper;
 import com.example.spring_boot_project_api.model.TicketBookings;
 import com.example.spring_boot_project_api.model.Tickets;
-import com.example.spring_boot_project_api.model.TourismPlaces;
+import com.example.spring_boot_project_api.model.TourPlaces;
 import com.example.spring_boot_project_api.model.Users;
 import com.example.spring_boot_project_api.repository.TicketBookingRepository;
 import com.example.spring_boot_project_api.repository.TicketRepository;
@@ -50,8 +50,8 @@ class TicketBookingServiceImplTest {
         return user;
     }
 
-    private TourismPlaces place() {
-        TourismPlaces place = new TourismPlaces();
+    private TourPlaces place() {
+        TourPlaces place = new TourPlaces();
         place.setId(10L);
         place.setName("Angkor Wat");
         return place;
@@ -63,7 +63,7 @@ class TicketBookingServiceImplTest {
         ticket.setName("Adult Entry");
         ticket.setPrice(new BigDecimal("25.00"));
         ticket.setIsAvailable(true);
-        ticket.setTourismPlaces(place());
+        ticket.setTourPlaces(place());
         return ticket;
     }
 

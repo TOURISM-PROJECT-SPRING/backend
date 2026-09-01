@@ -11,7 +11,7 @@ import com.example.spring_boot_project_api.dto.response.RestaurantResponse;
 import com.example.spring_boot_project_api.exception.ResourceNotFoundException;
 import com.example.spring_boot_project_api.mapper.RestaurantMapper;
 import com.example.spring_boot_project_api.model.Restaurants;
-import com.example.spring_boot_project_api.model.TourismPlaces;
+import com.example.spring_boot_project_api.model.TourPlaces;
 import com.example.spring_boot_project_api.repository.RestaurantRepository;
 import com.example.spring_boot_project_api.repository.TourismPlaceRepository;
 import com.example.spring_boot_project_api.service.RestaurantService;
@@ -54,14 +54,14 @@ public class RestaurantServiceImpl implements RestaurantService {
             throw new ResourceNotFoundException("Tourism Place", tourismPlaceId);
         }
         return RestaurantMapper.toResponseList(
-                restaurantRepository.findByTourismPlacesId(tourismPlaceId));
+                restaurantRepository.findByTourPlacesId(tourismPlaceId));
     }
 
     @Override
     public RestaurantResponse create(RestaurantRequest request) {
         validateHours(request.getOpenTime(), request.getCloseTime());
 
-        TourismPlaces tourismPlace = tourismPlaceRepository.findById(request.getTourismPlaceId())
+        TourPlaces tourismPlace = tourismPlaceRepository.findById(request.getTourismPlaceId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Tourism Place", request.getTourismPlaceId()));
 
@@ -77,7 +77,7 @@ public class RestaurantServiceImpl implements RestaurantService {
         Restaurants restaurant = restaurantRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Restaurant", id));
 
-        TourismPlaces tourismPlace = tourismPlaceRepository.findById(request.getTourismPlaceId())
+        TourPlaces tourismPlace = tourismPlaceRepository.findById(request.getTourismPlaceId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Tourism Place", request.getTourismPlaceId()));
 

@@ -47,10 +47,10 @@ public class TicketBookingMapper {
                 .ticketId(ticket != null ? ticket.getId() : null)
                 .ticketName(ticket != null ? ticket.getName() : null)
                 .unitPrice(ticket != null ? ticket.getPrice() : null)
-                .tourismPlaceId(ticket != null && ticket.getTourismPlaces() != null
-                        ? ticket.getTourismPlaces().getId() : null)
-                .tourismPlaceName(ticket != null && ticket.getTourismPlaces() != null
-                        ? ticket.getTourismPlaces().getName() : null)
+                .tourismPlaceId(ticket != null && ticket.getTourPlaces() != null
+                        ? ticket.getTourPlaces().getId() : null)
+                .tourismPlaceName(ticket != null && ticket.getTourPlaces() != null
+                        ? ticket.getTourPlaces().getName() : null)
                 .quantity(booking.getQuantity())
                 .totalPrice(booking.getTotalPrice())
                 .visitDate(booking.getVisiDate())

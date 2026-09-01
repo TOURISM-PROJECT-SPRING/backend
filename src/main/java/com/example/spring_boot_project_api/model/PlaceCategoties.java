@@ -36,7 +36,7 @@ public class PlaceCategoties {
     @OneToMany(mappedBy = "placeCategoty", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private List<TourismPlaces> tourismPlaces = new ArrayList<>();
+    private List<TourPlaces> tourismPlaces = new ArrayList<>();
     
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

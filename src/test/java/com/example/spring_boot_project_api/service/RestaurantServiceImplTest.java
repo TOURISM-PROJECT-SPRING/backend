@@ -20,7 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.example.spring_boot_project_api.dto.request.RestaurantRequest;
 import com.example.spring_boot_project_api.dto.response.RestaurantResponse;
 import com.example.spring_boot_project_api.model.Restaurants;
-import com.example.spring_boot_project_api.model.TourismPlaces;
+import com.example.spring_boot_project_api.model.TourPlaces;
 import com.example.spring_boot_project_api.repository.RestaurantRepository;
 import com.example.spring_boot_project_api.repository.TourismPlaceRepository;
 import com.example.spring_boot_project_api.service.impl.RestaurantServiceImpl;
@@ -36,8 +36,8 @@ class RestaurantServiceImplTest {
     @InjectMocks
     private RestaurantServiceImpl restaurantService;
 
-    private TourismPlaces tourismPlace() {
-        TourismPlaces place = new TourismPlaces();
+    private TourPlaces tourismPlace() {
+        TourPlaces place = new TourPlaces();
         place.setId(1L);
         place.setName("Angkor Wat");
         return place;
@@ -60,7 +60,7 @@ class RestaurantServiceImplTest {
         restaurant.setDescription("Traditional Khmer food");
         restaurant.setOpenTime(LocalTime.of(9, 0));
         restaurant.setClossTime(LocalTime.of(22, 0));
-        restaurant.setTourismPlaces(tourismPlace());
+        restaurant.setTourPlaces(tourismPlace());
         return restaurant;
     }
 
@@ -99,7 +99,7 @@ class RestaurantServiceImplTest {
     @Test
     void findByTourismPlaceId_returnsRestaurants() {
         when(tourismPlaceRepository.existsById(1L)).thenReturn(true);
-        when(restaurantRepository.findByTourismPlacesId(1L)).thenReturn(List.of(restaurant()));
+        when(restaurantRepository.findByTourPlacesId(1L)).thenReturn(List.of(restaurant()));
 
         List<RestaurantResponse> responses = restaurantService.findByTourismPlaceId(1L);
 

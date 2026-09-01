@@ -44,10 +44,10 @@ public class Tickets {
     private Boolean isAvailable;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "tourismPlace_id", nullable = false)
+    @JoinColumn(name = "tourPlace_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private TourismPlaces tourismPlaces;
+    private TourPlaces tourPlaces;
 
     @OneToMany(mappedBy = "tickets", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude

@@ -13,32 +13,39 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
 @Entity
 @Data
-@Table(name = "place_images")
-public class PlaceImages {
+@Table(name = "food_attachments",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"food_id", "attachments_id"}))
+public class FoodAttachments {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    
-    @Column(name = "image_url", length = 255)
-    private String ImageUrl;
-    
-    @Column(name = "is_primary")
-    private Boolean isPrimary;
-    
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "tourist_place_id", nullable = false)
+    @JoinColumn(name = "food_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private TourismPlaces tourismPlace;
-    
+    private Foods foods;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "attachments_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Attachments attachments;
+
+    @Column(name = "type", length = 50)
+    private String type;
+
+    @Column(name = "sort_order")
+    private Integer sortOrder = 0;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -47,8 +54,11 @@ public class PlaceImages {
 
     @PrePersist
     void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = createdAt;
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
     }
 
     @PreUpdate

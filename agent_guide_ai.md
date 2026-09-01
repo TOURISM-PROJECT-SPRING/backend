@@ -11,9 +11,16 @@ Spring Boot REST API.
 
 - **Language / runtime:** Java 21
 - **Framework:** Spring Boot 4.0.8-SNAPSHOT (spring-boot-starter-parent)
-- **Persistence:** Spring Data JPA + MySQL (`mysql-connector-j`)
+- **Persistence:** Spring Data JPA + PostgreSQL (`postgresql` driver, `PostgreSQLDialect`,
+  `ddl-auto=update` in `application.properties`)
+- **Cache:** spring-boot-starter-data-redis + spring-boot-starter-cache (Redis)
 - **Validation:** spring-boot-starter-validation (Jakarta Bean Validation)
+- **Security:** spring-boot-starter-security (`SecurityConfig` in `config/`)
+- **File/image uploads:** Cloudinary SDK (`cloudinary-http44`)
+- **PDF rendering:** OpenPDF
 - **API docs:** springdoc-openapi-starter-webmvc-ui (Swagger UI)
+- **Config:** DB credentials come from environment variables (`DB_HOST`, `DB_PORT`, `DB_NAME`,
+  `DB_USER`, `DB_PASSWORD`) via `springboot4-dotenv` (a `.env` file)
 - **Boilerplate:** Lombok
 - **Build tool:** Maven (use the `./mvnw` wrapper, not a system-wide `mvn`)
 - **Base package:** `com.example.spring_boot_project_api`
@@ -29,17 +36,99 @@ Spring Boot REST API.
 
 Swagger UI is available at `/swagger-ui.html` once the app is running.
 
+Note: `SpringBootProjectApiApplicationTests.contextLoads` bootstraps the full Spring context and
+needs a live PostgreSQL instance reachable with the credentials in your `.env`. The Mockito unit
+tests in `src/test/java/.../service/` run without a database.
+
+## Environment variables
+
+Read from `.env` (see `.env.example`) via `springboot4-dotenv` and injected with `${VAR:default}` in
+`application.properties`:
+
+| Variable                  | Used for                                   | Default        |
+|---------------------------|--------------------------------------------|----------------|
+| `DB_HOST`, `DB_PORT`      | PostgreSQL host / port                     | localhost/5432 |
+| `DB_NAME`                 | Database name                              | —              |
+| `DB_USER`, `DB_PASSWORD`  | DB credentials                             | —              |
+| `REDIS_HOST`              | Redis host (spring-boot-data-redis)        | localhost      |
+| `CLOUDINARY_CLOUD_NAME`   | Cloudinary account (image uploads)         | —              |
+| `CLOUDINARY_API_KEY`      | Cloudinary key                             | —              |
+| `CLOUDINARY_API_SECRET`   | Cloudinary secret                          | —              |
+| `SERVER_PORT`             | HTTP port                                  | 8080           |
+
+## API surface
+
+Base package `api`; JSON everywhere unless noted. Standard per-resource CRUD controllers follow:
+`GET /, /{id}, /search`, `POST`, `PUT /{id}`, `DELETE /{id}`.
+
+- `api/locations` — Location CRUD (+ `/province`, `/district`)
+- `api/carts` — cart + nested items: `/{cartId}/items`, `PUT /{cartId}/items/{itemId}`
+- `api/foods`, `api/food-categories` — food + category (foods create/update consume `multipart/form-data`)
+- `api/food-orders` — orders (+ `/user/{userId}`, `/restaurant/{restaurantId}`, `/status/{status}`, `/from-cart`, `PUT /{id}/status`, `POST /{id}/cancel`)
+- `api/hotels`, `api/hotel-rooms`, `api/room-types`, `api/rooms` — hotel domain (+ `/location/{districtId}`, `/owner/{ownerId}`, `/price-range`, `/min-capacity`, `/filter`)
+- `api/restaurants` (+ `/tourism-place/{tourismPlaceId}`) — restaurants
+- `api/tour-places` — tourism places (pure JSON CRUD; no image params/routes — images go through the dedicated `api/tour-place-attachments` below), plus `/search`, `/district/{districtId}`, `/category/{categoryId}`, `/rating`, `/filter`
+- `api/tour-place-attachments` — **dedicated** attachment API (see below); `GET /tour-place/{tourPlaceId}`, `POST` (`tourPlaceId` + `files`/`file` + optional `type`, `multipart/form-data`), `DELETE /{attachmentId}`
+- `api/tickets`, `api/ticket-bookings` — tickets + bookings (incl. `/available`, `/date`, `/verify`, `POST /{id}/cancel`, `/use`); `POST /api/ticket-bookings/{id}/payment` and `POST /api/payments/callback[:form]` in `PaymentController`
+- `api/ticket-bookings/{id}/eticket` — e-ticket (OpenPDF + QR via `util/QrCodeUtil`)
+- `api/room-bookings` — room bookings (+ `/user/{userId}/status/{status}`, `POST /{id}/cancel`)
+- `api/place-categories` — categories (create/update consume `multipart/form-data`)
+- `api/{entity}/{entityId}/attachments` — attachment joins for User/Hotel/Room/Food/
+  Restaurant `POST`, `GET`, `DELETE /{attachmentId}` — one central `attachments` table (Cloudinary
+  metadata) linked via `user/hotel/room/tour_place/food/restaurant_attachments` junction tables
+  (see Conventions). **Exception:** TourPlace attachments use the dedicated
+  `api/tour-place-attachments` routes, not `api/tour-places/{id}/attachments`.
+
+## Domain models
+
+All entities live in `model/`. Grouped: users/roles/perms (`Users`, `Roles`, `UserRoles`,
+`BusinesssOwnerProfiles`, `Notifications`); locations (`Location`, `PlaceCategoties`,
+`TourPlaces`); hospitality (`Hotels`, `HotelRooms`, `RoomTypes`, `Rooms`,
+`Restaurants`, `Foods`, `FoodCategories`); commerce (`Carts`, `CartItems`, `Promotions`,
+`Favorites`, `Reviews`); bookings/orders (`RoomBookings`, `TicketBookings`, `Tickets`, `FoodOrders`,
+`FoodOrderItems`, `TourBookings`, `TourPackages`, `TourPackageStops`, `TourGuides`, `Payments`);
+media/attachment system (`Attachments` central table — Cloudinary metadata only — plus six junction
+entities `UserAttachments`, `HotelAttachments`, `RoomAttachments`, `TourPlaceAttachments`,
+`FoodAttachments`, `RestaurantAttachments`; see Conventions).
+
+Note the historical rename in this codebase: `TourPlaces` was once `TourismPlaces`, and the
+`@ManyToOne` back-refs on `Restaurants`/`Tickets`/`Reviews` are `tourPlaces` /
+`tourPlace` (not `tourismPlaces`). Repositories derived queries and `mappedBy`
+must use the **current** field names.
+
+## Error handling
+
+`exception/GlobalExceptionHandler` (`@RestControllerAdvice`) maps every response to the
+`{timestamp, status, error, message}` shape (validation also returns a per-field `errors` map):
+
+- `ResourceNotFoundException` → 404 "Not Found"
+- `UnauthorizedException` → 401 "Unauthorized"
+- `MethodArgumentNotValidException` → 400 "Validation Failed" with per-field `errors`
+- `IllegalArgumentException` → 400 "Bad Request"
+- `InvalidFileException` → 400 "Invalid File"
+- `FileStorageException` → 500 "File Storage Error"
+- `CloudinaryUploadException` → 500 "Cloudinary Upload Error"
+- `CloudinaryDeleteException` → 500 "Cloudinary Delete Error"
+- `Exception` → 500 "Internal Server Error"
+
+Services throw specific exceptions from `exception/` (e.g.
+`new ResourceNotFoundException("Resource", id)` for missing records); controllers never catch —
+the global handler translates them into consistent JSON responses.
+
 ## Folder structure
 
 ```
 src/main/java/com/example/spring_boot_project_api/
 ├── SpringBootProjectApiApplication.java   # main entry point
-├── config/           # @Configuration classes (OpenAPI, CORS, beans, etc.)
+├── config/           # @Configuration classes (SecurityConfig, CorsConfig, OpenApiConfig, etc.)
+│                     # + AttachmentOrphanCleanupListener (JPA @PreRemove Cloudinary cleanup)
 ├── controller/        # @RestController — HTTP layer only, delegates to service
 ├── dto/
 │   ├── request/       # inbound request payloads (validated with jakarta.validation)
 │   └── response/       # outbound response payloads
 ├── model/             # @Entity JPA persistence models
+├── enums/             # enum types (e.g. AttachmentFileType, AttachmentRole, GenderEnum, UserEnum)
+├── Redis/             # Redis cache configuration (Cacheconfig)
 ├── exception/          # custom exceptions + @RestControllerAdvice global handler
 ├── mapper/            # model <-> DTO conversion
 ├── repository/          # Spring Data JPA repositories
@@ -71,6 +160,35 @@ src/test/java/com/example/spring_boot_project_api/
 - **Config:** database connection and environment-specific settings belong in
   `application.properties` (or profile-specific `application-{profile}.properties`), not
   hardcoded in Java.
+- **File/image uploads:** images are uploaded to Cloudinary (`cloudinary-http44`), never stored on the
+  local server. Controllers that accept files use `consumes = MediaType.MULTIPART_FORM_DATA_VALUE`
+  with a `@ModelAttribute` DTO containing `MultipartFile` fields. `service/CloudinaryService` wraps the
+  SDK: `uploadImage(file[, baseFolder, fileType])` returns an `UploadResult` record
+  (`secureUrl`, `publicId`, `resourceType`), and `delete(publicId[, resourceType])` removes an asset
+  later by its public id. Entities that store a single image keep only the `secure_url` string (see
+  `FoodServiceImpl`). The `attachments` system persists Cloudinary metadata
+  only — `cloudinary_url`, `cloudinary_public_id` (required so the image can be deleted later) and
+  `cloudinary_resource_type` — organised under `smart-tourism/{entity}/{entityId}/{uuid}`. Credentials
+  come from env vars via `application.properties`; never hardcode the API secret.
+- **Security:** `config/SecurityConfig` currently allows all requests (`anyRequest().permitAll()`);
+  no authentication is enforced yet.
+- **Attachment system (one central table + 6 junction tables):** there is exactly one `attachments`
+  table (Cloudinary metadata only) and six junction entities — `UserAttachments`, `HotelAttachments`,
+  `RoomAttachments`, `TourPlaceAttachments`, `FoodAttachments`, `RestaurantAttachments`. Each
+  junction is a `@Entity` join table linking `{Entity}_id` to `attachments_id` with
+  `UNIQUE({entity}_id, attachments_id)` (no `@ManyToMany`); owners use
+  `@OneToMany(mappedBy = "{lowerCamelEntity}", cascade = ALL, orphanRemoval = true)`. All logic is
+  consolidated in `AttachmentUploadService` (+ impl) and exposed via `api/{entity}/{entityId}/attachments`
+  (POST single/`files` multiple `multipart/form-data` + optional `type` role, GET list, DELETE
+  `/{attachmentId}`) for User/Hotel/Room/Food/Restaurant. **TourPlace is the exception:** its
+  attachments use the dedicated `api/tour-place-attachments` routes (`GET /tour-place/{tourPlaceId}`,
+  `POST`, `DELETE /{attachmentId}`) and `api/tour-places` stays a pure JSON CRUD API with no
+  image/`MultipartFile` parameters. All uploads are organised under
+  `smart-tourism/{entity}/{entityId}/{uuid}`; deletion is reference-counted across the 6 junction
+  tables before the Cloudinary asset is removed, and a failed transaction deletes already-uploaded
+  Cloudinary images. When JPA derives queries or validates `mappedBy`, the property name must match
+  the actual owning field — after a rename, update both the owning field and every
+  `mappedBy`/derived-query that references it.
 
 ## Notes for agents
 
@@ -79,4 +197,8 @@ src/test/java/com/example/spring_boot_project_api/
 - When adding a new resource (e.g. `Product`), create matching files across `model`,
   `repository`, `dto/request`, `dto/response`, `mapper`, `service` (+ `impl`), and `controller` —
   don't skip the DTO/mapper layer "just this once."
+- Before renaming a JPA field, grep for `mappedBy`, derived-query methods, mapper setters, and test
+  fixtures that reference the old name — a compiler-clean build can still fail at context load.
+- Tests: service unit tests (`src/test/java/.../service/`) use Mockito mocks without a DB; mirror the
+  existing test style (e.g. `TicketBookingServiceImplTest`) when adding new ones.
 - Run `./mvnw test` before considering a change complete.

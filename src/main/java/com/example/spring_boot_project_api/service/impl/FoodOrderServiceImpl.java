@@ -22,7 +22,6 @@ import com.example.spring_boot_project_api.model.Restaurants;
 import com.example.spring_boot_project_api.model.Users;
 import com.example.spring_boot_project_api.repository.CartItemRepository;
 import com.example.spring_boot_project_api.repository.CartRepository;
-import com.example.spring_boot_project_api.repository.FoodOrderItemRepository;
 import com.example.spring_boot_project_api.repository.FoodOrderRepository;
 import com.example.spring_boot_project_api.repository.FoodRepository;
 import com.example.spring_boot_project_api.repository.RestaurantRepository;
@@ -37,7 +36,6 @@ import lombok.RequiredArgsConstructor;
 public class FoodOrderServiceImpl implements FoodOrderService {
 
     private final FoodOrderRepository foodOrderRepository;
-    private final FoodOrderItemRepository foodOrderItemRepository;
     private final FoodRepository foodRepository;
     private final UserRepository userRepository;
     private final RestaurantRepository restaurantRepository;

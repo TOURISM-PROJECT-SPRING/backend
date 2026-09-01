@@ -5,25 +5,25 @@ import java.util.List;
 import com.example.spring_boot_project_api.dto.request.RestaurantRequest;
 import com.example.spring_boot_project_api.dto.response.RestaurantResponse;
 import com.example.spring_boot_project_api.model.Restaurants;
-import com.example.spring_boot_project_api.model.TourismPlaces;
+import com.example.spring_boot_project_api.model.TourPlaces;
 
 public class RestaurantMapper {
 
     private RestaurantMapper() {}
 
-    public static Restaurants toEntity(RestaurantRequest request, TourismPlaces tourismPlace) {
+    public static Restaurants toEntity(RestaurantRequest request, TourPlaces tourismPlace) {
         Restaurants entity = new Restaurants();
         toEntity(entity, request, tourismPlace);
         return entity;
     }
 
     public static void toEntity(Restaurants entity, RestaurantRequest request,
-                                TourismPlaces tourismPlace) {
+                                TourPlaces tourismPlace) {
         entity.setName(request.getName());
         entity.setDescription(request.getDescription());
         entity.setOpenTime(request.getOpenTime());
         entity.setClossTime(request.getCloseTime());
-        entity.setTourismPlaces(tourismPlace);
+        entity.setTourPlaces(tourismPlace);
     }
 
     public static RestaurantResponse toResponse(Restaurants entity) {
@@ -34,9 +34,9 @@ public class RestaurantMapper {
         response.setDescription(entity.getDescription());
         response.setOpenTime(entity.getOpenTime());
         response.setCloseTime(entity.getClossTime());
-        if (entity.getTourismPlaces() != null) {
-            response.setTourismPlaceId(entity.getTourismPlaces().getId());
-            response.setTourismPlaceName(entity.getTourismPlaces().getName());
+        if (entity.getTourPlaces() != null) {
+            response.setTourismPlaceId(entity.getTourPlaces().getId());
+            response.setTourismPlaceName(entity.getTourPlaces().getName());
         }
         response.setCreatedAt(entity.getCreatedAt());
         response.setUpdatedAt(entity.getUpdatedAt());

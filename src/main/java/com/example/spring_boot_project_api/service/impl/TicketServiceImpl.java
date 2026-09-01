@@ -11,7 +11,7 @@ import com.example.spring_boot_project_api.dto.response.TicketResponse;
 import com.example.spring_boot_project_api.exception.ResourceNotFoundException;
 import com.example.spring_boot_project_api.mapper.TicketMapper;
 import com.example.spring_boot_project_api.model.Tickets;
-import com.example.spring_boot_project_api.model.TourismPlaces;
+import com.example.spring_boot_project_api.model.TourPlaces;
 import com.example.spring_boot_project_api.repository.TicketRepository;
 import com.example.spring_boot_project_api.repository.TourismPlaceRepository;
 import com.example.spring_boot_project_api.service.TicketService;
@@ -53,7 +53,7 @@ public class TicketServiceImpl implements TicketService {
             throw new ResourceNotFoundException("Tourism place", tourismPlaceId);
         }
         return TicketMapper.toResponseList(
-                ticketRepository.findByTourismPlacesIdAndIsAvailableTrue(tourismPlaceId));
+                ticketRepository.findByTourPlacesIdAndIsAvailableTrue(tourismPlaceId));
     }
 
     @Override
@@ -70,7 +70,7 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public TicketResponse create(TicketRequest request) {
-        TourismPlaces place = tourismPlaceRepository.findById(request.getTourismPlaceId())
+        TourPlaces place = tourismPlaceRepository.findById(request.getTourismPlaceId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Tourism place", request.getTourismPlaceId()));
         Tickets ticket = TicketMapper.toEntity(request, place);
@@ -82,7 +82,7 @@ public class TicketServiceImpl implements TicketService {
     public TicketResponse update(Long id, TicketRequest request) {
         Tickets ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket", id));
-        TourismPlaces place = tourismPlaceRepository.findById(request.getTourismPlaceId())
+        TourPlaces place = tourismPlaceRepository.findById(request.getTourismPlaceId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Tourism place", request.getTourismPlaceId()));
         TicketMapper.toEntity(ticket, request, place);

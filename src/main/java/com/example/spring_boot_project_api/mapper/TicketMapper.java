@@ -7,24 +7,24 @@ import java.util.stream.Collectors;
 import com.example.spring_boot_project_api.dto.request.TicketRequest;
 import com.example.spring_boot_project_api.dto.response.TicketResponse;
 import com.example.spring_boot_project_api.model.Tickets;
-import com.example.spring_boot_project_api.model.TourismPlaces;
+import com.example.spring_boot_project_api.model.TourPlaces;
 
 public class TicketMapper {
 
     private TicketMapper() {}
 
-    public static Tickets toEntity(TicketRequest request, TourismPlaces place) {
+    public static Tickets toEntity(TicketRequest request, TourPlaces place) {
         Tickets ticket = new Tickets();
         toEntity(ticket, request, place);
         return ticket;
     }
 
-    public static void toEntity(Tickets ticket, TicketRequest request, TourismPlaces place) {
+    public static void toEntity(Tickets ticket, TicketRequest request, TourPlaces place) {
         ticket.setName(request.getName());
         ticket.setPrice(request.getPrice());
         ticket.setDescription(request.getDescription());
         ticket.setIsAvailable(request.getIsAvailable() == null || request.getIsAvailable());
-        ticket.setTourismPlaces(place);
+        ticket.setTourPlaces(place);
     }
 
     public static TicketResponse toResponse(Tickets ticket) {
@@ -35,10 +35,10 @@ public class TicketMapper {
                 .price(ticket.getPrice())
                 .description(ticket.getDescription())
                 .isAvailable(ticket.getIsAvailable())
-                .tourismPlaceId(ticket.getTourismPlaces() != null
-                        ? ticket.getTourismPlaces().getId() : null)
-                .tourismPlaceName(ticket.getTourismPlaces() != null
-                        ? ticket.getTourismPlaces().getName() : null)
+                .tourismPlaceId(ticket.getTourPlaces() != null
+                        ? ticket.getTourPlaces().getId() : null)
+                .tourismPlaceName(ticket.getTourPlaces() != null
+                        ? ticket.getTourPlaces().getName() : null)
                 .createdAt(ticket.getCreatedAt())
                 .updatedAt(ticket.getUpdatedAt())
                 .build();
