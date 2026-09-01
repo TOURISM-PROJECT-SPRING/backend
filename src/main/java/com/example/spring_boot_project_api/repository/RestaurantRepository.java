@@ -13,7 +13,9 @@ public interface RestaurantRepository extends JpaRepository<Restaurants, Long> {
 
     List<Restaurants> findByNameContainingIgnoreCase(String keyword);
 
-    List<Restaurants> findByTourismPlacesId(Long tourismPlaceId);
+    List<Restaurants> findByTourPlacesId(Long tourismPlaceId);
+
+    boolean existsByName(String name);
 
     List<Restaurants> findByOpenTimeBeforeAndClossTimeAfter(LocalTime time, LocalTime sameTime);
 }

@@ -25,7 +25,6 @@ public class FoodMapper {
                                 FoodCategories foodCategory) {
         entity.setName(request.getName());
         entity.setPrice(request.getPrice());
-        entity.setImage(request.getImage());
         entity.setIsAvailable(request.getIsAvailable());
         entity.setRestaurants(restaurant);
         entity.setFoodCategories(foodCategory);

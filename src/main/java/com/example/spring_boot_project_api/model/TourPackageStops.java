@@ -42,7 +42,7 @@ public class TourPackageStops {
     @JoinColumn(name = "tourism_place_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private TourismPlaces tourismPlaces;
+    private TourPlaces tourismPlaces;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

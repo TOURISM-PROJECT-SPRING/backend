@@ -2,6 +2,8 @@ package com.example.spring_boot_project_api.dto.request;
 
 import java.math.BigDecimal;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -22,7 +24,7 @@ public class FoodRequest {
     @DecimalMin(value = "0.0", message = "Price must be at least 0")
     private BigDecimal price;
 
-    private String image;
+    private MultipartFile image;
 
     @NotNull(message = "Is available is required")
     private Boolean isAvailable;

@@ -43,7 +43,8 @@ public class TourPlaceController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<TourPlaceResponseDTO> update(@PathVariable Long id, @Valid @RequestBody TourPlaceRequestDTO request) {
+    public ResponseEntity<TourPlaceResponseDTO> update(@PathVariable Long id,
+                                                       @Valid @RequestBody TourPlaceRequestDTO request) {
         return ResponseEntity.ok(tourPlaceService.update(id, request));
     }
 

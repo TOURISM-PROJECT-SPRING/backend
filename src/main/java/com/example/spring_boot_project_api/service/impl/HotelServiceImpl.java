@@ -9,11 +9,11 @@ import com.example.spring_boot_project_api.dto.request.HotelRequest;
 import com.example.spring_boot_project_api.dto.response.HotelResponse;
 import com.example.spring_boot_project_api.exception.ResourceNotFoundException;
 import com.example.spring_boot_project_api.mapper.HotelMapper;
-import com.example.spring_boot_project_api.model.Districts;
 import com.example.spring_boot_project_api.model.Hotels;
+import com.example.spring_boot_project_api.model.Location;
 import com.example.spring_boot_project_api.model.Users;
-import com.example.spring_boot_project_api.repository.DistrictRepository;
 import com.example.spring_boot_project_api.repository.HotelRepository;
+import com.example.spring_boot_project_api.repository.LocationRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.service.HotelService;
 
@@ -25,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class HotelServiceImpl implements HotelService {
 
     private final HotelRepository hotelRepository;
-    private final DistrictRepository districtRepository;
+    private final LocationRepository locationRepository;
     private final UserRepository userRepository;
 
     @Override
@@ -52,8 +52,8 @@ public class HotelServiceImpl implements HotelService {
     @Override
     @Transactional(readOnly = true)
     public List<HotelResponse> findByLocationId(Long districtId) {
-        if (!districtRepository.existsById(districtId)) {
-            throw new ResourceNotFoundException("District", districtId);
+        if (!locationRepository.existsById(districtId)) {
+            throw new ResourceNotFoundException("Location", districtId);
         }
         return HotelMapper.toResponseList(hotelRepository.findByLocationId(districtId));
     }
@@ -69,8 +69,8 @@ public class HotelServiceImpl implements HotelService {
 
     @Override
     public HotelResponse create(HotelRequest request) {
-        Districts location = districtRepository.findById(request.getLocationId())
-                .orElseThrow(() -> new ResourceNotFoundException("District", request.getLocationId()));
+        Location location = locationRepository.findById(request.getLocationId())
+                .orElseThrow(() -> new ResourceNotFoundException("Location", request.getLocationId()));
 
         Users owner = userRepository.findById(request.getOwnerId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getOwnerId()));
@@ -90,8 +90,8 @@ public class HotelServiceImpl implements HotelService {
         Hotels hotel = hotelRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel", id));
 
-        Districts location = districtRepository.findById(request.getLocationId())
-                .orElseThrow(() -> new ResourceNotFoundException("District", request.getLocationId()));
+        Location location = locationRepository.findById(request.getLocationId())
+                .orElseThrow(() -> new ResourceNotFoundException("Location", request.getLocationId()));
 
         Users owner = userRepository.findById(request.getOwnerId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getOwnerId()));

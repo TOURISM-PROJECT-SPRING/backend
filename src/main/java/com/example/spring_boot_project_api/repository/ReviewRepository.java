@@ -12,7 +12,7 @@ import com.example.spring_boot_project_api.model.Reviews;
 @Repository
 public interface ReviewRepository extends JpaRepository<Reviews, Long> {
 
-    List<Reviews> findByTouristPlace_IdOrderByCreatedAtDesc(Long tourismPlaceId);
+    List<Reviews> findByTourPlace_IdOrderByCreatedAtDesc(Long tourPlaceId);
 
     List<Reviews> findByHotel_IdOrderByCreatedAtDesc(Long hotelId);
 
@@ -24,8 +24,8 @@ public interface ReviewRepository extends JpaRepository<Reviews, Long> {
 
     List<Reviews> findByRating(Integer rating);
 
-    @Query("select avg(r.rating) from Reviews r where r.touristPlace.id = :tourismPlaceId")
-    Double findAverageRatingByTouristPlaceId(@Param("tourismPlaceId") Long tourismPlaceId);
+    @Query("select avg(r.rating) from Reviews r where r.tourPlace.id = :tourPlaceId")
+    Double findAverageRatingByTourPlaceId(@Param("tourPlaceId") Long tourPlaceId);
 
     @Query("select avg(r.rating) from Reviews r where r.hotel.id = :hotelId")
     Double findAverageRatingByHotelId(@Param("hotelId") Long hotelId);

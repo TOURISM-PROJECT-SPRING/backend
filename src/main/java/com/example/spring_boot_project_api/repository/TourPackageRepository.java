@@ -13,7 +13,7 @@ public interface TourPackageRepository extends JpaRepository<TourPackages, Long>
 
     List<TourPackages> findByNameContainingIgnoreCase(String keyword);
 
-    List<TourPackages> findByProvincesId(Long provinceId);
+    List<TourPackages> findByLocationsId(Long locationId);
 
     List<TourPackages> findByToureGuidesId(Long tourGuideId);
 

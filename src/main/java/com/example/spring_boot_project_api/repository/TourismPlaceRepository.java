@@ -6,24 +6,24 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.example.spring_boot_project_api.model.TourismPlaces;
+import com.example.spring_boot_project_api.model.TourPlaces;
 
 @Repository
-public interface TourismPlaceRepository extends JpaRepository<TourismPlaces, Long> {
+public interface TourismPlaceRepository extends JpaRepository<TourPlaces, Long> {
 
-    List<TourismPlaces> findByNameContainingIgnoreCase(String keyword);
+    List<TourPlaces> findByNameContainingIgnoreCase(String keyword);
 
-    List<TourismPlaces> findByDistrictId(Long districtId);
+    List<TourPlaces> findByDistrictId(Long districtId);
 
-    List<TourismPlaces> findByPlaceCategotyId(Long placeCategoryId);
+    List<TourPlaces> findByPlaceCategotyId(Long placeCategoryId);
 
-    List<TourismPlaces> findByUserId(Long userId);
+    List<TourPlaces> findByUserId(Long userId);
 
-    List<TourismPlaces> findByStaus(String staus);
+    List<TourPlaces> findByStaus(String staus);
 
-    List<TourismPlaces> findByRatingGreaterThanEqualOrderByRatingDesc(BigDecimal minRating);
+    List<TourPlaces> findByRatingGreaterThanEqualOrderByRatingDesc(BigDecimal minRating);
 
-    List<TourismPlaces> findByDistrictIdAndPlaceCategotyId(Long districtId, Long placeCategoryId);
+    List<TourPlaces> findByDistrictIdAndPlaceCategotyId(Long districtId, Long placeCategoryId);
 
     long countByDistrictId(Long districtId);
 

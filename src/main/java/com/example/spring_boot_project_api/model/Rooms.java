@@ -7,6 +7,7 @@ import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -21,9 +22,12 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
+import com.example.spring_boot_project_api.config.AttachmentOrphanCleanupListener;
+
 @Entity
 @Data
 @Table(name = "rooms")
+@EntityListeners(AttachmentOrphanCleanupListener.class)
 public class Rooms {
 
     @Id
@@ -46,6 +50,11 @@ public class Rooms {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<RoomBookings> roomBookings = new ArrayList<>();
+
+    @OneToMany(mappedBy = "rooms", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<RoomAttachments> roomAttachments = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

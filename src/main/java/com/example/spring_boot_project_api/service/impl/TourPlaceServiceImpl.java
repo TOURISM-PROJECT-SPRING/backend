@@ -10,11 +10,11 @@ import com.example.spring_boot_project_api.dto.request.TourPlaceRequestDTO;
 import com.example.spring_boot_project_api.dto.response.TourPlaceResponseDTO;
 import com.example.spring_boot_project_api.exception.ResourceNotFoundException;
 import com.example.spring_boot_project_api.mapper.TourPlaceMapper;
-import com.example.spring_boot_project_api.model.Districts;
+import com.example.spring_boot_project_api.model.Location;
 import com.example.spring_boot_project_api.model.PlaceCategoties;
-import com.example.spring_boot_project_api.model.TourismPlaces;
+import com.example.spring_boot_project_api.model.TourPlaces;
 import com.example.spring_boot_project_api.model.Users;
-import com.example.spring_boot_project_api.repository.DistrictRepository;
+import com.example.spring_boot_project_api.repository.LocationRepository;
 import com.example.spring_boot_project_api.repository.PlaceCategoryRepository;
 import com.example.spring_boot_project_api.repository.TourismPlaceRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
@@ -30,7 +30,7 @@ public class TourPlaceServiceImpl implements TourPlaceService {
     private final TourismPlaceRepository tourPlaceRepository;
     private final PlaceCategoryRepository placeCategoryRepository;
     private final UserRepository userRepository;
-    private final DistrictRepository districtRepository;
+    private final LocationRepository locationRepository;
 
     @Override
     public TourPlaceResponseDTO create(TourPlaceRequestDTO request) {
@@ -40,18 +40,18 @@ public class TourPlaceServiceImpl implements TourPlaceService {
         Users user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getUserId()));
 
-        Districts district = districtRepository.findById(request.getDistrictId())
-                .orElseThrow(() -> new ResourceNotFoundException("District", request.getDistrictId()));
+        Location district = locationRepository.findById(request.getDistrictId())
+                .orElseThrow(() -> new ResourceNotFoundException("Location", request.getDistrictId()));
 
-        TourismPlaces place = TourPlaceMapper.toEntity(request, category, user, district);
-        TourismPlaces saved = tourPlaceRepository.save(place);
-        return TourPlaceMapper.toResponse(saved);
+        TourPlaces place = TourPlaceMapper.toEntity(request, category, user, district);
+        TourPlaces saved = tourPlaceRepository.save(place);
+        return TourPlaceMapper.toResponse(reload(saved));
     }
 
     @Override
     @Transactional(readOnly = true)
     public TourPlaceResponseDTO getById(Long id) {
-        TourismPlaces place = tourPlaceRepository.findById(id)
+        TourPlaces place = tourPlaceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Tourism Place", id));
         return TourPlaceMapper.toResponse(place);
     }
@@ -59,13 +59,13 @@ public class TourPlaceServiceImpl implements TourPlaceService {
     @Override
     @Transactional(readOnly = true)
     public List<TourPlaceResponseDTO> getAll() {
-        List<TourismPlaces> places = tourPlaceRepository.findAll();
+        List<TourPlaces> places = tourPlaceRepository.findAll();
         return TourPlaceMapper.toResponseList(places);
     }
 
     @Override
     public TourPlaceResponseDTO update(Long id, TourPlaceRequestDTO request) {
-        TourismPlaces existing = tourPlaceRepository.findById(id)
+        TourPlaces existing = tourPlaceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Tourism Place", id));
 
         PlaceCategoties category = placeCategoryRepository.findById(request.getPlaceCategoryId())
@@ -74,12 +74,12 @@ public class TourPlaceServiceImpl implements TourPlaceService {
         Users user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getUserId()));
 
-        Districts district = districtRepository.findById(request.getDistrictId())
-                .orElseThrow(() -> new ResourceNotFoundException("District", request.getDistrictId()));
+        Location district = locationRepository.findById(request.getDistrictId())
+                .orElseThrow(() -> new ResourceNotFoundException("Location", request.getDistrictId()));
 
         TourPlaceMapper.toEntity(existing, request, category, user, district);
-        TourismPlaces updated = tourPlaceRepository.save(existing);
-        return TourPlaceMapper.toResponse(updated);
+        TourPlaces updated = tourPlaceRepository.save(existing);
+        return TourPlaceMapper.toResponse(reload(updated));
     }
 
     @Override
@@ -130,5 +130,10 @@ public class TourPlaceServiceImpl implements TourPlaceService {
     @Transactional(readOnly = true)
     public List<TourPlaceResponseDTO> getByDistrictAndCategory(Long districtId, Long categoryId) {
         return TourPlaceMapper.toResponseList(tourPlaceRepository.findByDistrictIdAndPlaceCategotyId(districtId, categoryId));
+    }
+
+    private TourPlaces reload(TourPlaces place) {
+        return tourPlaceRepository.findById(place.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tourism Place", place.getId()));
     }
 }

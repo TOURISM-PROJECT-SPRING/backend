@@ -1,7 +1,6 @@
 package com.example.spring_boot_project_api.dto.response;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,8 +24,6 @@ public class TourPlaceResponseDTO {
     private PlaceCategoryInfo placeCategory;
     private UserInfo user;
     private DistrictInfo district;
-
-    private List<PlaceImageInfo> placeImages;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -69,15 +66,5 @@ public class TourPlaceResponseDTO {
     public static class ProvinceInfo {
         private Long id;
         private String name;
-    }
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class PlaceImageInfo {
-        private Long id;
-        private String imageUrl;
-        private Boolean isPrimary;
     }
 }

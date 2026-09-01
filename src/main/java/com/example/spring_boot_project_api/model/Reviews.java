@@ -42,7 +42,7 @@ public class Reviews {
     @JoinColumn(name = "tourist_place_id")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private TourismPlaces touristPlace;
+    private TourPlaces tourPlace;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "hotel_id")

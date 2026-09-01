@@ -6,15 +6,15 @@ import java.util.stream.Collectors;
 
 import com.example.spring_boot_project_api.dto.request.HotelRequest;
 import com.example.spring_boot_project_api.dto.response.HotelResponse;
-import com.example.spring_boot_project_api.model.Districts;
 import com.example.spring_boot_project_api.model.Hotels;
+import com.example.spring_boot_project_api.model.Location;
 import com.example.spring_boot_project_api.model.Users;
 
 public class HotelMapper {
 
     private HotelMapper() {}
 
-    public static Hotels toEntity(HotelRequest request, Districts location, Users owner) {
+    public static Hotels toEntity(HotelRequest request, Location location, Users owner) {
         Hotels hotel = new Hotels();
         hotel.setHotelName(request.getHotelName());
         hotel.setPhoneContact(request.getPhoneContact());
@@ -24,7 +24,7 @@ public class HotelMapper {
         return hotel;
     }
 
-    public static void toEntity(Hotels hotel, HotelRequest request, Districts location, Users owner) {
+    public static void toEntity(Hotels hotel, HotelRequest request, Location location, Users owner) {
         hotel.setHotelName(request.getHotelName());
         hotel.setPhoneContact(request.getPhoneContact());
         hotel.setEmailContact(request.getEmailContact());
@@ -40,7 +40,7 @@ public class HotelMapper {
                 .phoneContact(hotel.getPhoneContact())
                 .emailContact(hotel.getEmailContact())
                 .locationId(hotel.getLocation() != null ? hotel.getLocation().getId() : null)
-                .locationName(hotel.getLocation() != null ? hotel.getLocation().getName() : null)
+                .locationName(hotel.getLocation() != null ? hotel.getLocation().getDistrict() : null)
                 .ownerId(hotel.getOwner() != null ? hotel.getOwner().getId() : null)
                 .ownerName(hotel.getOwner() != null ? hotel.getOwner().getFullname() : null)
                 .createdAt(hotel.getCreatedAt())

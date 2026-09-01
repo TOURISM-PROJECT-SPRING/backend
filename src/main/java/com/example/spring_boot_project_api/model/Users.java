@@ -11,6 +11,7 @@ import com.example.spring_boot_project_api.enums.UserEnum;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
@@ -24,9 +25,12 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
+import com.example.spring_boot_project_api.config.AttachmentOrphanCleanupListener;
+
 @Entity
 @Data
 @Table(name = "users")
+@EntityListeners(AttachmentOrphanCleanupListener.class)
 public class Users {
     
     @Id
@@ -59,10 +63,6 @@ public class Users {
     @Column(name = "status")
     private UserEnum status = UserEnum.Online;
 
-    // this column use for store profile image of user
-    @Column(name = "avatar_url", length = 255)
-    private String avatarUrl;
-
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
@@ -76,7 +76,7 @@ public class Users {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private List<TourismPlaces> tourismPlaces = new ArrayList<>();
+    private List<TourPlaces> tourismPlaces = new ArrayList<>();
 
     @OneToMany(mappedBy = "users", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
@@ -87,6 +87,16 @@ public class Users {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Hotels> hotels = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Carts> carts = new ArrayList<>();
+
+    @OneToMany(mappedBy = "users", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<UserAttachments> attachments = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

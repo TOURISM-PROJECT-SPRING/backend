@@ -2,6 +2,8 @@ package com.example.spring_boot_project_api.service;
 
 import java.util.List;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import com.example.spring_boot_project_api.dto.request.FoodRequest;
 import com.example.spring_boot_project_api.dto.response.FoodResponse;
 
@@ -17,9 +19,9 @@ public interface FoodService {
 
     List<FoodResponse> findByFoodCategoryId(Long foodCategoryId);
 
-    FoodResponse create(FoodRequest request);
+    FoodResponse create(FoodRequest request, MultipartFile image);
 
-    FoodResponse update(Long id, FoodRequest request);
+    FoodResponse update(Long id, FoodRequest request, MultipartFile image);
 
     void delete(Long id);
 }

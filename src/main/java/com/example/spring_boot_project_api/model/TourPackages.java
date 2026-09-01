@@ -50,7 +50,7 @@ public class TourPackages {
     @JoinColumn(name = "province_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private Provinces provinces;
+    private Location locations;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "tour_guide_id", nullable = false)
