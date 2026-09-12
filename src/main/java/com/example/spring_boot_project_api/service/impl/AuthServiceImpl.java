@@ -105,6 +105,7 @@ public class AuthServiceImpl implements AuthService {
                             request.getUsername(), request.getPassword()));
             AppUserDetails principal = (AppUserDetails) authentication.getPrincipal();
             Users user = userRepository.findByUsername(principal.getUsername())
+                    .or(() -> userRepository.findByEmail(principal.getUsername()))
                     .orElseThrow(() -> new UnauthorizedException("Invalid username or password"));
             return buildAuthResponse(user);
         } catch (AuthenticationException ex) {

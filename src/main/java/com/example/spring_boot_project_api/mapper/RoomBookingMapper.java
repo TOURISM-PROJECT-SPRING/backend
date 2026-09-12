@@ -79,7 +79,7 @@ public class RoomBookingMapper {
         if (nights <= 0) {
             return null;
         }
-        return booking.getAmount().divide(BigDecimal.valueOf(nights));
+        return booking.getAmount().divide(BigDecimal.valueOf(nights), 2, java.math.RoundingMode.HALF_UP);
     }
 
     public static List<RoomBookingResponse> toResponseList(List<RoomBookings> bookings) {
