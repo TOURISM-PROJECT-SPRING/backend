@@ -54,12 +54,21 @@ Read from `.env` (see `.env.example`) via `springboot4-dotenv` and injected with
 | `CLOUDINARY_CLOUD_NAME`   | Cloudinary account (image uploads)         | —              |
 | `CLOUDINARY_API_KEY`      | Cloudinary key                             | —              |
 | `CLOUDINARY_API_SECRET`   | Cloudinary secret                          | —              |
+| `JWT_SECRET`              | JWT signing key (HS256, ≥32 bytes)         | dev-only key   |
+| `JWT_EXPIRATION_MS`       | Access-token lifetime                      | 86400000 (24h) |
+| `RESET_TOKEN_EXPIRATION_MINUTES` | Password-reset token lifetime      | 30             |
 | `SERVER_PORT`             | HTTP port                                  | 8080           |
 
 ## API surface
 
 Base package `api`; JSON everywhere unless noted. Standard per-resource CRUD controllers follow:
 `GET /, /{id}, /search`, `POST`, `PUT /{id}`, `DELETE /{id}`.
+
+- `api/auth` — authentication & authorization (see **Authentication & authorization** below):
+  `POST /register`, `POST /login`, `POST /forgot-password`, `POST /reset-password`,
+  `POST /change-password`, `POST /logout`
+- `api/management` — **ADMIN-only** read endpoints (users, owners, roles, reviews, promotions,
+  notifications, payments, tour-packages, tour-guides)
 
 - `api/locations` — Location CRUD (+ `/province`, `/district`)
 - `api/carts` — cart + nested items: `/{cartId}/items`, `PUT /{cartId}/items/{itemId}`
@@ -78,6 +87,54 @@ Base package `api`; JSON everywhere unless noted. Standard per-resource CRUD con
   metadata) linked via `user/hotel/room/tour_place/food/restaurant_attachments` junction tables
   (see Conventions). **Exception:** TourPlace attachments use the dedicated
   `api/tour-place-attachments` routes, not `api/tour-places/{id}/attachments`.
+
+## Authentication & authorization
+
+- **JWT** (`io.jsonwebtoken:jjwt` 0.13): `security/JwtService` issues/parses HS256 tokens
+  (subject = username, claims `userId`/`fullname`). `security/JwtAuthenticationFilter` reads
+  `Authorization: Bearer <token>` and populates the `SecurityContext` via
+  `security/AppUserDetailsService` (authorities are `ROLE_<name>` uppercased from `user_roles`).
+  The filter is a plain class instantiated in `SecurityConfig` (not a `@Component`) to avoid
+  double servlet registration.
+- **SecurityConfig** (`config/SecurityConfig`): stateless; role-based route matrix in
+  `authorizeHttpRequests` (rules are evaluated top-down, first match wins, so specific
+  sub-paths like `/user/**`, `/status/**`, `/restaurant/**` are declared **before** generic
+  `/{id}` patterns for the same resource). Custom `security/RestAuthenticationEntryPoint`
+  (401 JSON) and `security/RestAccessDeniedHandler` (403 JSON) output the standard
+  `{timestamp, status, error, message}` shape.
+
+  Route → role map (HTTP methods qualifiers apply unless the pattern is unqualified):
+
+  | Area | Route | Allowed |
+  |------|-------|---------|
+  | Public | `api/auth/register`, `login`, `forgot-password`, `reset-password`; Swagger paths; `POST /api/payments/callback[:form]`; `POST /api/contact`; `POST /api/newsletter/subscribe`; all catalog GETs (hotels, rooms, foods, tickets, tour-places, attachments, reviews, promotions) | everyone |
+  | Admin module | `GET/POST/PUT/DELETE /api/management/**`, `/api/contact/**`, `/api/newsletter/**` | `ADMIN` |
+  | Categories | `POST/PUT/DELETE /api/place-categories/**` | `ADMIN` |
+  | Business write | `POST/PUT/DELETE /api/hotels/**`, `/api/hotel-rooms/**`, `/api/room-types/**`, `/api/rooms/**`, `/api/restaurants/**`, `/api/foods/**`, `/api/food-categories/**`, `/api/promotions/**`, `/api/tour-places/**`; `POST/DELETE` of `api/tour-place-attachments/**` and `api/{hotels,rooms,foods,restaurants}/*/attachments` | `ADMIN`, `OWNER` |
+  | Restaurant ops | `GET /api/food-orders/restaurant/**`; `PUT /api/food-orders/*/status`; `GET /api/food-orders` (all orders), `GET /api/food-orders/status/**`; `GET /api/room-bookings` (all) | `ADMIN`, `OWNER` |
+  | Ticket staff | `POST /api/ticket-bookings/verify`, `POST /api/ticket-bookings/*/use`; `GET /api/ticket-bookings` (all), `/status/**`, `/date`, `/ticket/**` | `ADMIN`, `OWNER` |
+  | Booking views | `GET /api/room-bookings/status/**`, `/room/**`; `PUT /api/room-bookings/*` | `ADMIN`, `OWNER` |
+  | Tourist own-read | `GET /api/food-orders/user/**`, `/{id}`; `/api/ticket-bookings/user/**`, `/{id}`, `/*/eticket`; `/api/room-bookings/user/**`, `/{id}` | `ADMIN`, `TOURIST` |
+  | Tourist write | `POST /api/food-orders/**`, `/api/ticket-bookings`, `/*/cancel`, `/*/payment`, `/api/room-bookings`, `/*/cancel`; all `/api/carts/**` | `ADMIN`, `TOURIST` |
+  | Any logged-in | `POST/DELETE /api/users/*/attachments`; `POST /api/auth/change-password`, `POST /api/auth/logout` | authenticated |
+  | Hard delete | `DELETE /api/food-orders/*`, `/api/ticket-bookings/*`, `/api/room-bookings/*` | `ADMIN` |
+  | Everything else | — | `permitAll` |
+
+  Note: a single `requestMatchers` accepts **one** `HttpMethod` + varargs patterns (Spring
+  Security 7); for multi-method rules declare one rule per method, in the same order.
+- **Roles:** stored in the `roles` table, joined via `user_roles`. `config/DataSeeder`
+  (a `CommandLineRunner`) seeds `ADMIN`, `OWNER`, `TOURIST` plus default accounts
+  `admin/admin123`, `owner/owner123`, `tourist/tourist123` (and a sample
+  `BusinesssOwnerProfiles` for the owner). New registrations always get `TOURIST`
+  (see `util/RoleNames`).
+- **Logout/token handling:** `security/TokenBlacklistService` revokes a token by storing it in
+  Redis (`blacklisted:token:<jwt>`) until its natural expiry; Redis outages degrade gracefully to
+  stateless expiry only. Never store tokens server-side otherwise.
+- **Password flow:** `forgot-password` returns a UUID token (dev-mode: returned in JSON, no email);
+  `reset-password` consumes it (30-min expiry, one-time use via `model/PasswordResetToken`);
+  `change-password` requires the current password and an authenticated request.
+- Note for Spring Security 7: `DaoAuthenticationProvider` has **no** no-arg constructor — use
+  `new DaoAuthenticationProvider(userDetailsService)`.
 
 ## Domain models
 
@@ -170,8 +227,11 @@ src/test/java/com/example/spring_boot_project_api/
   only — `cloudinary_url`, `cloudinary_public_id` (required so the image can be deleted later) and
   `cloudinary_resource_type` — organised under `smart-tourism/{entity}/{entityId}/{uuid}`. Credentials
   come from env vars via `application.properties`; never hardcode the API secret.
-- **Security:** `config/SecurityConfig` currently allows all requests (`anyRequest().permitAll()`);
-  no authentication is enforced yet.
+- **Security:** JWT-based (stateless) — see **Authentication & authorization** above.
+  `config/SecurityConfig` applies the role-based route matrix (`ADMIN`/`OWNER`/`TOURIST`,
+  see the route→role table); catalog GETs stay public, and the auth-only endpoints require
+  authentication. Passwords are BCrypt-encoded.
+  JWT secret/lifetime come from env (`JWT_SECRET`, `JWT_EXPIRATION_MS`); never hardcode a real secret.
 - **Attachment system (one central table + 6 junction tables):** there is exactly one `attachments`
   table (Cloudinary metadata only) and six junction entities — `UserAttachments`, `HotelAttachments`,
   `RoomAttachments`, `TourPlaceAttachments`, `FoodAttachments`, `RestaurantAttachments`. Each

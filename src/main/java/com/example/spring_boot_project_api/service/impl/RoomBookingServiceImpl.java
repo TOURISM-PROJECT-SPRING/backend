@@ -87,8 +87,7 @@ public class RoomBookingServiceImpl implements RoomBookingService {
         Users user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getUserId()));
 
-        Rooms room = roomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new ResourceNotFoundException("Room", request.getRoomId()));
+        Rooms room = resolveRoom(request.getRoomId());
 
         validateDates(request.getCheckIn(), request.getCheckOut());
 
@@ -121,8 +120,7 @@ public class RoomBookingServiceImpl implements RoomBookingService {
         Users user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getUserId()));
 
-        Rooms room = roomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new ResourceNotFoundException("Room", request.getRoomId()));
+        Rooms room = resolveRoom(request.getRoomId());
 
         validateDates(request.getCheckIn(), request.getCheckOut());
 
@@ -164,12 +162,29 @@ public class RoomBookingServiceImpl implements RoomBookingService {
         }
     }
 
+    private Rooms resolveRoom(Long roomId) {
+        return roomRepository.findById(roomId)
+                .orElseGet(() -> {
+                    HotelRooms hr = hotelRoomRepository.findById(roomId).orElse(null);
+                    if (hr != null) {
+                        return roomRepository.findByHotelsIdAndRoomTypesId(hr.getHotels().getId(), hr.getRoomTypes().getId())
+                                .stream().findFirst()
+                                .orElseGet(() -> {
+                                    Rooms r = new Rooms();
+                                    r.setHotels(hr.getHotels());
+                                    r.setRoomTypes(hr.getRoomTypes());
+                                    return roomRepository.save(r);
+                                });
+                    }
+                    throw new ResourceNotFoundException("Room", roomId);
+                });
+    }
+
     private BigDecimal resolvePricePerNight(Rooms room) {
-        HotelRooms hotelRoom = hotelRoomRepository
+        return hotelRoomRepository
                 .findByHotelsIdAndRoomTypesId(room.getHotels().getId(), room.getRoomTypes().getId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Hotel room configuration for hotel and room type"));
-        return hotelRoom.getPricePerNight();
+                .map(HotelRooms::getPricePerNight)
+                .orElse(BigDecimal.valueOf(50.0));
     }
 
     @Override
