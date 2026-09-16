@@ -131,23 +131,44 @@ public class DataSeeder implements CommandLineRunner {
         if (role.isEmpty()) {
             return;
         }
-        Optional<Users> existing = userRepository.findByUsername("owner");
+
+        // 1. Hotel Owner
+        seedSingleOwner("Sovann Hotel Owner", "owner", "owner@smart-tourism.com", "owner123",
+                "Sovann Hotels & Resorts Group", "LIC-HOTEL-001", role.get());
+        seedSingleOwner("Sovann Hotel Owner", "owner_hotel", "owner.hotel@smart-tourism.com", "owner123",
+                "Sovann Hotels & Resorts Group", "LIC-HOTEL-001B", role.get());
+
+        // 2. Restaurant Owner
+        seedSingleOwner("Chann Restaurant Owner", "owner_restaurant", "owner.restaurant@smart-tourism.com", "owner123",
+                "Chann Khmer Dining & Cuisines", "LIC-REST-002", role.get());
+
+        // 3. Tourists / Tour Owner
+        seedSingleOwner("Bopha Tour Owner", "owner_tour", "owner.tour@smart-tourism.com", "owner123",
+                "Bopha Angkor Tours & Adventures", "LIC-TOUR-003", role.get());
+        seedSingleOwner("Bopha Tour Owner", "owner_tourist", "owner.tourist@smart-tourism.com", "owner123",
+                "Bopha Angkor Tours & Adventures", "LIC-TOUR-003B", role.get());
+    }
+
+    private void seedSingleOwner(String fullname, String username, String email, String password,
+            String businessName, String licenseNo, Roles role) {
+        Optional<Users> existing = userRepository.findByUsername(username);
+        Users ownerUser;
         if (existing.isPresent()) {
-            normalizePassword(existing.get(), "owner123");
+            ownerUser = existing.get();
+            normalizePassword(ownerUser, password);
         } else {
-            Users owner = newUser("Business Owner", "owner", "owner@smart-tourism.com",
-                    "owner123");
-            userRepository.save(owner);
-            assignRole(owner, role.get());
-            if (!businessOwnerProfileRepository.existsByBusinessLicenseNo("LIC-0001")) {
-                BusinesssOwnerProfiles profile = new BusinesssOwnerProfiles();
-                profile.setBusinessName("Smart Tourism Partner");
-                profile.setBusinessLicenseNo("LIC-0001");
-                profile.setVerificationStatus("VERIFIED");
-                profile.setVerifiedAt(LocalDate.now());
-                profile.setUsers(owner);
-                businessOwnerProfileRepository.save(profile);
-            }
+            ownerUser = newUser(fullname, username, email, password);
+            userRepository.save(ownerUser);
+            assignRole(ownerUser, role);
+        }
+        if (!businessOwnerProfileRepository.existsByBusinessLicenseNo(licenseNo)) {
+            BusinesssOwnerProfiles profile = new BusinesssOwnerProfiles();
+            profile.setBusinessName(businessName);
+            profile.setBusinessLicenseNo(licenseNo);
+            profile.setVerificationStatus("VERIFIED");
+            profile.setVerifiedAt(LocalDate.now());
+            profile.setUsers(ownerUser);
+            businessOwnerProfileRepository.save(profile);
         }
     }
 
