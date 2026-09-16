@@ -2,6 +2,8 @@ package com.example.spring_boot_project_api.service;
 
 import java.util.List;
 
+import com.example.spring_boot_project_api.dto.request.UserAdminUpdateRequest;
+import com.example.spring_boot_project_api.dto.response.MessageResponse;
 import com.example.spring_boot_project_api.dto.response.NotificationResponse;
 import com.example.spring_boot_project_api.dto.response.OwnerResponse;
 import com.example.spring_boot_project_api.dto.response.PaymentResponse;
@@ -17,6 +19,10 @@ public interface ManagementService {
     List<UserResponse> findAllUsers();
 
     UserResponse findUserById(Long id);
+
+    UserResponse updateUser(Long id, UserAdminUpdateRequest request);
+
+    MessageResponse deleteUser(Long id);
 
     List<OwnerResponse> findAllOwners();
 

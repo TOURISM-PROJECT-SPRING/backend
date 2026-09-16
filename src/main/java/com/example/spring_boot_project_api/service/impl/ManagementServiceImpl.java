@@ -6,6 +6,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.spring_boot_project_api.dto.request.UserAdminUpdateRequest;
+import com.example.spring_boot_project_api.dto.response.MessageResponse;
 import com.example.spring_boot_project_api.dto.response.NotificationResponse;
 import com.example.spring_boot_project_api.dto.response.OwnerResponse;
 import com.example.spring_boot_project_api.dto.response.PaymentResponse;
@@ -23,6 +25,7 @@ import com.example.spring_boot_project_api.model.Reviews;
 import com.example.spring_boot_project_api.model.Roles;
 import com.example.spring_boot_project_api.model.TourGuides;
 import com.example.spring_boot_project_api.model.TourPackages;
+import com.example.spring_boot_project_api.model.UserRoles;
 import com.example.spring_boot_project_api.model.Users;
 import com.example.spring_boot_project_api.repository.BusinessOwnerProfileRepository;
 import com.example.spring_boot_project_api.repository.NotificationRepository;
@@ -33,6 +36,8 @@ import com.example.spring_boot_project_api.repository.RoleRepository;
 import com.example.spring_boot_project_api.repository.TourGuideRepository;
 import com.example.spring_boot_project_api.repository.TourPackageRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
+import com.example.spring_boot_project_api.repository.UserRoleRepository;
+import com.example.spring_boot_project_api.exception.ResourceNotFoundException;
 import com.example.spring_boot_project_api.service.ManagementService;
 
 import lombok.RequiredArgsConstructor;
@@ -43,6 +48,7 @@ import lombok.RequiredArgsConstructor;
 public class ManagementServiceImpl implements ManagementService {
 
     private final UserRepository userRepository;
+    private final UserRoleRepository userRoleRepository;
     private final BusinessOwnerProfileRepository businessOwnerProfileRepository;
     private final RoleRepository roleRepository;
     private final ReviewRepository reviewRepository;
@@ -63,6 +69,65 @@ public class ManagementServiceImpl implements ManagementService {
     public UserResponse findUserById(Long id) {
         return toUserResponse(userRepository.findById(id).orElseThrow(
                 () -> new IllegalArgumentException("User not found with id: " + id)));
+    }
+
+    @Override
+    @Transactional
+    public UserResponse updateUser(Long id, UserAdminUpdateRequest request) {
+        Users user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User", id));
+
+        userRepository.findByUsername(request.getUsername())
+                .filter(existing -> !existing.getId().equals(id))
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException("Username is already taken");
+                });
+        userRepository.findByEmail(request.getEmail())
+                .filter(existing -> !existing.getId().equals(id))
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException("Email is already registered");
+                });
+
+        user.setFullname(request.getFullname());
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        if (request.getGender() != null) {
+            user.setGender(request.getGender());
+        }
+        user.setAddress(request.getAddress());
+        if (request.getDateOfBirth() != null) {
+            user.setDateOfBirth(request.getDateOfBirth());
+        }
+        if (request.getStatus() != null) {
+            user.setStatus(request.getStatus());
+        }
+
+        if (request.getRoles() != null) {
+            userRoleRepository.deleteByUserId(id);
+            user.getUserRoles().clear();
+            for (String roleName : request.getRoles()) {
+                Roles role = roleRepository.findByName(roleName.toUpperCase())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Role not found: " + roleName));
+                UserRoles userRole = new UserRoles();
+                userRole.setUser(user);
+                userRole.setRole(role);
+                userRoleRepository.save(userRole);
+                user.getUserRoles().add(userRole);
+            }
+        }
+
+        return toUserResponse(userRepository.save(user));
+    }
+
+    @Override
+    @Transactional
+    public MessageResponse deleteUser(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new ResourceNotFoundException("User", id);
+        }
+        userRepository.deleteById(id);
+        return MessageResponse.builder().message("User deleted successfully").build();
     }
 
     @Override

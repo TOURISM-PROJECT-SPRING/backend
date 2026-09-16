@@ -1,4 +1,5 @@
 package com.example.spring_boot_project_api.mapper;
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,7 +20,7 @@ public class TourPlaceMapper {
         place.setLatitude(request.getLatitude());
         place.setLongitude(request.getLongitude());
         place.setStaus(request.getStatus());
-        place.setRating(request.getRating());
+        place.setRating(request.getRating() != null ? request.getRating() : BigDecimal.ZERO);
         place.setPlaceCategoty(category);
         place.setUser(user);
         place.setDistrict(district);
@@ -33,7 +34,7 @@ public class TourPlaceMapper {
         place.setLatitude(request.getLatitude());
         place.setLongitude(request.getLongitude());
         place.setStaus(request.getStatus());
-        place.setRating(request.getRating());
+        place.setRating(request.getRating() != null ? request.getRating() : BigDecimal.ZERO);
         place.setPlaceCategoty(category);
         place.setUser(user);
         place.setDistrict(district);

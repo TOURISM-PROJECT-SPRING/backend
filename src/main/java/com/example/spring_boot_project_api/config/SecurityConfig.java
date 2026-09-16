@@ -63,7 +63,10 @@ public class SecurityConfig {
                                 "/api/auth/forgot-password", "/api/auth/reset-password",
                                 "/swagger-ui.html", "/swagger-ui/**",
                                 "/api-docs/**", "/v3/api-docs/**",
-                                "/api/payments/callback", "/api/payments/callback-form")
+                                "/api/payments/callback", "/api/payments/callback-form",
+                                "/api/v1/bakong/**",
+                                "/ws-tourism/**", "/api/bookings/**",
+                                "/api/admin/bookings/**", "/api/owner/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/contact").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/newsletter/subscribe").permitAll()
