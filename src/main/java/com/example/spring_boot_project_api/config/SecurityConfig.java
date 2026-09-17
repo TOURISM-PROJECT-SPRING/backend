@@ -127,7 +127,8 @@ public class SecurityConfig {
                                 "/api/ticket-bookings/status/**", "/api/ticket-bookings/date",
                                 "/api/ticket-bookings/ticket/**",
                                 "/api/ticket-bookings",
-                                "/api/room-bookings/status/**", "/api/room-bookings/room/**")
+                                "/api/room-bookings/status/**", "/api/room-bookings/room/**",
+                                "/api/tour-bookings", "/api/tour-bookings/status/**")
                         .hasAnyRole("ADMIN", "OWNER")
                         .requestMatchers(HttpMethod.PUT, "/api/room-bookings/*")
                         .hasAnyRole("ADMIN", "OWNER")
@@ -137,14 +138,17 @@ public class SecurityConfig {
                                 "/api/food-orders/user/**", "/api/food-orders/{id}",
                                 "/api/ticket-bookings/user/**", "/api/ticket-bookings/{id}",
                                 "/api/ticket-bookings/*/eticket",
-                                "/api/room-bookings/user/**", "/api/room-bookings/{id}")
+                                "/api/room-bookings/user/**", "/api/room-bookings/{id}",
+                                "/api/tour-bookings/user/**", "/api/tour-bookings/{id}")
                         .hasAnyRole("ADMIN", "TOURIST")
                         .requestMatchers(HttpMethod.POST,
                                 "/api/food-orders/**",
                                 "/api/ticket-bookings",
                                 "/api/ticket-bookings/*/cancel",
                                 "/api/ticket-bookings/*/payment",
-                                "/api/room-bookings", "/api/room-bookings/*/cancel")
+                                "/api/room-bookings", "/api/room-bookings/*/cancel",
+                                "/api/tour-bookings", "/api/tour-bookings/*/cancel",
+                                "/api/payments/process")
                         .hasAnyRole("ADMIN", "TOURIST")
                         .requestMatchers("/api/carts/**")
                         .hasAnyRole("ADMIN", "TOURIST")
@@ -158,7 +162,7 @@ public class SecurityConfig {
                         .authenticated()
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/food-orders/*", "/api/ticket-bookings/*",
-                                "/api/room-bookings/*")
+                                "/api/room-bookings/*", "/api/tour-bookings/*")
                         .hasRole("ADMIN")
 
                         // everything else stays open for browsing

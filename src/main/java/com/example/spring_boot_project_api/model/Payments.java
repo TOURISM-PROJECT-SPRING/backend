@@ -42,26 +42,26 @@ public class Payments {
     @Column(name = "paid_at", nullable = false)
     private LocalDateTime paidAt;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "room_booking_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_booking_id")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private RoomBookings roomBookings;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ticket_booking_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ticket_booking_id")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private TicketBookings ticketBookings;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "food_order_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "food_order_id")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private FoodOrders foodOrders;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "tour_booking_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tour_booking_id")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private TourBookings tourBookings;

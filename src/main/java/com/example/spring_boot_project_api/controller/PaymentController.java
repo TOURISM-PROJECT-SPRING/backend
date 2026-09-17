@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.spring_boot_project_api.dto.request.PaymentCallbackRequest;
+import com.example.spring_boot_project_api.dto.request.PaymentProcessRequest;
 import com.example.spring_boot_project_api.dto.response.PaymentInitiationResponse;
+import com.example.spring_boot_project_api.dto.response.PaymentProcessResponse;
 import com.example.spring_boot_project_api.dto.response.TicketBookingResponse;
 import com.example.spring_boot_project_api.service.PaymentService;
 
@@ -26,6 +28,12 @@ public class PaymentController {
             @PathVariable Long id,
             @RequestParam(defaultValue = "CARD") String paymentMethod) {
         return ResponseEntity.ok(paymentService.initiatePayment(id, paymentMethod));
+    }
+
+    @PostMapping("/api/payments/process")
+    public ResponseEntity<PaymentProcessResponse> processPayment(
+            @Valid @RequestBody PaymentProcessRequest request) {
+        return ResponseEntity.ok(paymentService.processPayment(request));
     }
 
     @PostMapping("/api/payments/callback")
