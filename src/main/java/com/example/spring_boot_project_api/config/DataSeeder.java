@@ -177,14 +177,24 @@ public class DataSeeder implements CommandLineRunner {
         if (role.isEmpty()) {
             return;
         }
-        Optional<Users> existing = userRepository.findByUsername("tourist");
-        if (existing.isPresent()) {
-            normalizePassword(existing.get(), "tourist123");
+        Optional<Users> existingTourist = userRepository.findByUsername("tourist");
+        if (existingTourist.isPresent()) {
+            normalizePassword(existingTourist.get(), "tourist123");
         } else {
-            Users tourist = newUser("Tourist", "tourist", "tourist@smart-tourism.com",
+            Users tourist = newUser("Tourist Traveler", "tourist", "tourist@smart-tourism.com",
                     "tourist123");
             userRepository.save(tourist);
             assignRole(tourist, role.get());
+        }
+
+        Optional<Users> existingCustomer = userRepository.findByUsername("customer");
+        if (existingCustomer.isPresent()) {
+            normalizePassword(existingCustomer.get(), "customer123");
+        } else {
+            Users customer = newUser("Customer Dara", "customer", "customer@smart-tourism.com",
+                    "customer123");
+            userRepository.save(customer);
+            assignRole(customer, role.get());
         }
     }
 
