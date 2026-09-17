@@ -9,9 +9,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.spring_boot_project_api.dto.request.BookingOrderRequest;
+import com.example.spring_boot_project_api.dto.response.BookingFeedPageResponse;
 import com.example.spring_boot_project_api.dto.response.UnifiedBookingResponse;
 import com.example.spring_boot_project_api.service.AdminOwnerBookingService;
 
@@ -36,10 +38,15 @@ public class AdminOwnerBookingController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @Operation(summary = "Fetch global bookings for Admin Dashboard")
+    @Operation(summary = "Fetch global bookings for Admin Dashboard (type/status filter, search, pagination)")
     @GetMapping("/admin/bookings")
-    public ResponseEntity<List<UnifiedBookingResponse>> getAdminBookings() {
-        return ResponseEntity.ok(bookingService.getAdminBookings());
+    public ResponseEntity<BookingFeedPageResponse> getAdminBookings(
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "20") int size) {
+        return ResponseEntity.ok(bookingService.getAdminBookings(type, status, search, page, size));
     }
 
     @Operation(summary = "Fetch business-specific bookings for Owner Dashboard by Owner ID")

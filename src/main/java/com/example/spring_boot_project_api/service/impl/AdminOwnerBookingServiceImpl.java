@@ -5,11 +5,13 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.spring_boot_project_api.dto.request.BookingOrderRequest;
+import com.example.spring_boot_project_api.dto.response.BookingFeedPageResponse;
 import com.example.spring_boot_project_api.dto.response.UnifiedBookingResponse;
 import com.example.spring_boot_project_api.model.FoodOrders;
 import com.example.spring_boot_project_api.model.Restaurants;
@@ -17,6 +19,7 @@ import com.example.spring_boot_project_api.model.RoomBookings;
 import com.example.spring_boot_project_api.model.Rooms;
 import com.example.spring_boot_project_api.model.TicketBookings;
 import com.example.spring_boot_project_api.model.Tickets;
+import com.example.spring_boot_project_api.model.TourBookings;
 import com.example.spring_boot_project_api.model.Users;
 import com.example.spring_boot_project_api.repository.FoodOrderRepository;
 import com.example.spring_boot_project_api.repository.RestaurantRepository;
@@ -24,6 +27,7 @@ import com.example.spring_boot_project_api.repository.RoomBookingRepository;
 import com.example.spring_boot_project_api.repository.RoomRepository;
 import com.example.spring_boot_project_api.repository.TicketBookingRepository;
 import com.example.spring_boot_project_api.repository.TicketRepository;
+import com.example.spring_boot_project_api.repository.TourBookingRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.service.AdminOwnerBookingService;
 import com.example.spring_boot_project_api.service.BookingNotificationService;
@@ -39,6 +43,7 @@ public class AdminOwnerBookingServiceImpl implements AdminOwnerBookingService {
     private final RoomBookingRepository roomBookingRepository;
     private final TicketBookingRepository ticketBookingRepository;
     private final FoodOrderRepository foodOrderRepository;
+    private final TourBookingRepository tourBookingRepository;
     private final UserRepository userRepository;
     private final RoomRepository roomRepository;
     private final TicketRepository ticketRepository;
@@ -122,15 +127,60 @@ public class AdminOwnerBookingServiceImpl implements AdminOwnerBookingService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<UnifiedBookingResponse> getAdminBookings() {
-        List<UnifiedBookingResponse> list = new ArrayList<>();
+    public BookingFeedPageResponse getAdminBookings(String type, String status, String search,
+            int page, int size) {
+        List<UnifiedBookingResponse> all = new ArrayList<>();
+        roomBookingRepository.findAll().forEach(rb -> all.add(mapRoomBooking(rb)));
+        ticketBookingRepository.findAll().forEach(tb -> all.add(mapTicketBooking(tb)));
+        foodOrderRepository.findAll().forEach(fo -> all.add(mapFoodOrder(fo)));
+        tourBookingRepository.findAll().forEach(tb -> all.add(mapTourBooking(tb)));
 
-        roomBookingRepository.findAll().forEach(rb -> list.add(mapRoomBooking(rb)));
-        ticketBookingRepository.findAll().forEach(tb -> list.add(mapTicketBooking(tb)));
-        foodOrderRepository.findAll().forEach(fo -> list.add(mapFoodOrder(fo)));
+        List<UnifiedBookingResponse> list = new ArrayList<>(all);
 
-        list.sort(Comparator.comparing(UnifiedBookingResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
-        return list;
+        // Optional booking-type filter
+        if (type != null && !type.isBlank() && !"ALL".equalsIgnoreCase(type)) {
+            list = list.stream()
+                    .filter(b -> type.equalsIgnoreCase(b.getBookingType()))
+                    .collect(Collectors.toCollection(ArrayList::new));
+        }
+
+        // Optional status filter
+        if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+            list = list.stream()
+                    .filter(b -> status.equalsIgnoreCase(b.getStatus()))
+                    .collect(Collectors.toCollection(ArrayList::new));
+        }
+
+        // Optional full-text search over customer / service / booking id
+        if (search != null && !search.isBlank()) {
+            String q = search.trim().toLowerCase();
+            list = list.stream()
+                    .filter(b -> containsIgnoreCase(b.getCustomerName(), q)
+                            || containsIgnoreCase(b.getCustomerEmail(), q)
+                            || containsIgnoreCase(b.getServiceName(), q)
+                            || containsIgnoreCase(b.getId(), q)
+                            || containsIgnoreCase(b.getOwnerName(), q))
+                    .collect(Collectors.toCollection(ArrayList::new));
+        }
+
+        list.sort(Comparator.comparing(UnifiedBookingResponse::getCreatedAt,
+                Comparator.nullsLast(Comparator.reverseOrder())));
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 200);
+        int total = list.size();
+        int totalPages = (int) Math.ceil((double) total / safeSize);
+        int from = Math.min(safePage * safeSize, total);
+        int to = Math.min(from + safeSize, total);
+        List<UnifiedBookingResponse> content = (from >= total) ? List.of() : list.subList(from, to);
+
+        return BookingFeedPageResponse.builder()
+                .content(content)
+                .page(safePage)
+                .size(safeSize)
+                .totalElements(total)
+                .totalPages(totalPages)
+                .build();
     }
 
     @Override
@@ -247,6 +297,32 @@ public class AdminOwnerBookingServiceImpl implements AdminOwnerBookingService {
                 .createdAt(fo.getCreatedAt() != null ? fo.getCreatedAt() : LocalDateTime.now())
                 .items(items)
                 .build();
+    }
+
+    private UnifiedBookingResponse mapTourBooking(TourBookings tb) {
+        String pkgName = "Tour Package";
+        if (tb.getTourPackages() != null) {
+            pkgName = tb.getTourPackages().getName();
+        }
+
+        return UnifiedBookingResponse.builder()
+                .id("TOB-" + tb.getId())
+                .rawId(tb.getId())
+                .bookingType("TOUR")
+                .customerName(tb.getUser() != null ? tb.getUser().getFullname() : "Guest")
+                .customerEmail(tb.getUser() != null ? tb.getUser().getEmail() : null)
+                .customerPhone(null)
+                .serviceName(pkgName)
+                .totalAmount(tb.getTotalPrice())
+                .quantity(tb.getNumPeople())
+                .status(tb.getStatus())
+                .bookingDate(tb.getTourDate() != null ? tb.getTourDate().toString() : null)
+                .createdAt(tb.getCreatedAt() != null ? tb.getCreatedAt() : LocalDateTime.now())
+                .build();
+    }
+
+    private boolean containsIgnoreCase(String value, String query) {
+        return value != null && value.toLowerCase().contains(query);
     }
 
     private Users resolveUser(BookingOrderRequest request) {

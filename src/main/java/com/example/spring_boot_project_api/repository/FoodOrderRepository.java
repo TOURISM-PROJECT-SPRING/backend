@@ -1,9 +1,11 @@
 package com.example.spring_boot_project_api.repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import com.example.spring_boot_project_api.model.FoodOrders;
@@ -18,4 +20,13 @@ public interface FoodOrderRepository extends JpaRepository<FoodOrders, Long> {
     List<FoodOrders> findByStatus(String status);
 
     List<FoodOrders> findByPickupTimeBetween(LocalDateTime start, LocalDateTime end);
+
+    // --- Admin dashboard aggregates ---
+
+    @Query("select coalesce(sum(fo.totalPrice), 0) from FoodOrders fo where lower(fo.status) <> 'cancelled'")
+    BigDecimal sumNonCancelledRevenue();
+
+    long countByStatusIgnoreCase(String status);
+
+    List<FoodOrders> findByCreatedAtAfter(LocalDateTime since);
 }

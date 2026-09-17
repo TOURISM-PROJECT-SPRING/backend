@@ -2,11 +2,16 @@ package com.example.spring_boot_project_api.service.impl;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +25,7 @@ import com.example.spring_boot_project_api.model.Foods;
 import com.example.spring_boot_project_api.model.Hotels;
 import com.example.spring_boot_project_api.model.Restaurants;
 import com.example.spring_boot_project_api.model.RoomBookings;
-import com.example.spring_boot_project_api.model.Rooms;
+// import com.example.spring_boot_project_api.model.Rooms;
 import com.example.spring_boot_project_api.model.TicketBookings;
 import com.example.spring_boot_project_api.model.TourPlaces;
 import com.example.spring_boot_project_api.model.Users;
@@ -65,6 +70,7 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         BigDecimal totalRevenue = bookings.stream()
                 .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getStatus()))
                 .map(UnifiedBookingResponse::getTotalAmount)
+                .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         long pendingOrders = bookings.stream()
@@ -74,16 +80,7 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         List<OwnerOfferingDTO> offerings = getOwnerOfferings(targetOwnerId);
         long activeServices = offerings.size();
 
-        // 6-month trend calculation
-        List<Map<String, Object>> trend = new ArrayList<>();
-        String[] months = {"Nov", "Dec", "Jan", "Feb", "Mar", "Apr"};
-        int[] defaultRevenues = {4200, 5800, 5100, 6900, 8400, 9600};
-        for (int i = 0; i < months.length; i++) {
-            Map<String, Object> m = new HashMap<>();
-            m.put("label", months[i]);
-            m.put("revenue", defaultRevenues[i]);
-            trend.add(m);
-        }
+        List<Map<String, Object>> trend = buildRevenueTrend(bookings, 6);
 
         String businessName = userRepository.findById(targetOwnerId)
                 .map(Users::getFullname)
@@ -92,13 +89,44 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         return OwnerDashboardStatsDTO.builder()
                 .ownerId(targetOwnerId)
                 .businessName(businessName)
-                .totalBookings(totalBookings > 0 ? totalBookings : 38)
-                .activeServices(activeServices > 0 ? activeServices : 8)
-                .totalRevenue(totalRevenue.compareTo(BigDecimal.ZERO) > 0 ? totalRevenue : new BigDecimal("32500"))
-                .pendingOrders(pendingOrders > 0 ? pendingOrders : 6)
+                .totalBookings(totalBookings)
+                .activeServices(activeServices)
+                .totalRevenue(totalRevenue)
+                .pendingOrders(pendingOrders)
                 .revenueTrend(trend)
                 .recentBookings(bookings.stream().limit(6).toList())
                 .build();
+    }
+
+    /**
+     * Aggregate real non-cancelled revenue for the last {@code months} calendar
+     * months from this owner's bookings, filling missing months with zero.
+     */
+    private List<Map<String, Object>> buildRevenueTrend(List<UnifiedBookingResponse> bookings,
+            int months) {
+        LocalDateTime end = LocalDateTime.now();
+        LocalDateTime start = end.minusMonths(months - 1L)
+                .withDayOfMonth(1)
+                .withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+        Map<YearMonth, BigDecimal> byMonth = new TreeMap<>();
+        for (UnifiedBookingResponse b : bookings) {
+            if (b.getCreatedAt() == null || b.getTotalAmount() == null) continue;
+            if ("CANCELLED".equalsIgnoreCase(b.getStatus())) continue;
+            if (b.getCreatedAt().isBefore(start) || b.getCreatedAt().isAfter(end)) continue;
+            byMonth.merge(YearMonth.from(b.getCreatedAt()), b.getTotalAmount(), BigDecimal::add);
+        }
+
+        List<Map<String, Object>> trend = new ArrayList<>();
+        YearMonth ymStart = YearMonth.from(start);
+        YearMonth ymEnd = YearMonth.from(end);
+        for (YearMonth ym = ymStart; !ym.isAfter(ymEnd); ym = ym.plusMonths(1)) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("label", ym.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH));
+            m.put("revenue", byMonth.getOrDefault(ym, BigDecimal.ZERO));
+            trend.add(m);
+        }
+        return trend;
     }
 
     @Override
@@ -120,13 +148,6 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 .filter(fo -> fo.getRestuarants() != null
                         && fo.getRestuarants().getId().equals(targetOwnerId))
                 .forEach(fo -> list.add(mapFoodOrder(fo)));
-
-        // 3. Fallback demo data if empty
-        if (list.isEmpty()) {
-            roomBookingRepository.findAll().stream().limit(10).forEach(rb -> list.add(mapRoomBooking(rb)));
-            ticketBookingRepository.findAll().stream().limit(5).forEach(tb -> list.add(mapTicketBooking(tb)));
-            foodOrderRepository.findAll().stream().limit(5).forEach(fo -> list.add(mapFoodOrder(fo)));
-        }
 
         // Apply status filter if specified
         List<UnifiedBookingResponse> filtered = list;

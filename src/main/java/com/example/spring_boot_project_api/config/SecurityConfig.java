@@ -65,11 +65,16 @@ public class SecurityConfig {
                                 "/api-docs/**", "/v3/api-docs/**",
                                 "/api/payments/callback", "/api/payments/callback-form",
                                 "/api/v1/bakong/**",
-                                "/ws-tourism/**", "/api/bookings/**",
-                                "/api/admin/bookings/**", "/api/owner/**")
+                                "/ws-tourism/**", "/api/bookings/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/contact").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/newsletter/subscribe").permitAll()
+
+                        // ADMIN: admin dashboards (stats + global bookings feed)
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // OWNER + ADMIN: owner dashboard
+                        .requestMatchers("/api/owner/**").hasAnyRole("ADMIN", "OWNER")
 
                         // ADMIN: admin module + admin-only data + global categories
                         .requestMatchers("/api/management/**").hasRole("ADMIN")
@@ -115,6 +120,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/tour-place-attachments/**",
                                 "/api/hotels/*/attachments", "/api/rooms/*/attachments",
                                 "/api/foods/*/attachments", "/api/restaurants/*/attachments")
+                        .hasAnyRole("ADMIN", "OWNER")
+
+                        .requestMatchers(HttpMethod.POST, "/api/tickets/**")
+                        .hasAnyRole("ADMIN", "OWNER")
+                        .requestMatchers(HttpMethod.PUT, "/api/tickets/**")
+                        .hasAnyRole("ADMIN", "OWNER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/tickets/**")
                         .hasAnyRole("ADMIN", "OWNER")
 
                         // OWNER: restaurant order management + ticket staff actions

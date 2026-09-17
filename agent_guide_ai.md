@@ -86,10 +86,14 @@ Base package `api`; JSON everywhere unless noted. Standard per-resource CRUD con
 - `api/place-categories` — categories (create/update consume `multipart/form-data`)
 - `api/v1/bakong` — NBC Bakong KHQR payments (see Conventions): `POST /generate-qr`,
   `POST /check-status`, `POST /simulate-payment?md5=` (sandbox helper)
-- `api/bookings`, `api/admin/bookings`, `api/owner` — unified bookings + dashboards
-  (`AdminOwnerBookingController`, `OwnerDashboardController`): `POST /api/bookings` (unified
-  ROOM/TICKET/FOOD_ORDER checkout that also fires a realtime notification), `GET /api/admin/bookings`
-  (global feed), `GET /api/owner/bookings/{ownerId}`, and the `api/owner` group
+- `api/bookings`, `api/admin/bookings`, `api/admin/dashboard-stats`, `api/owner` — unified bookings + dashboards
+  (`AdminOwnerBookingController`, `AdminDashboardController`, `OwnerDashboardController`):
+  `POST /api/bookings` (unified ROOM/TICKET/FOOD_ORDER checkout that also fires a realtime
+  notification), `GET /api/admin/bookings` (paged global feed with
+  `?type=&status=&search=&page=&size=` — page default 0, size default 20, max 200),
+  `GET /api/admin/dashboard-stats` (real DB aggregates: totals, booking breakdown,
+  non-cancelled revenue, pending orders, active promotions, 6-month revenue trend, recent
+  bookings), `GET /api/owner/bookings/{ownerId}`, and the `api/owner` group
   (`/dashboard-stats`, `/bookings[?status=]`, `PUT /bookings/{bookingType}/{id}/status`,
   `/services` GET/POST, `PATCH /services/{offeringType}/{id}/availability`,
   `DELETE /services/{offeringType}/{id}`)
@@ -119,10 +123,12 @@ Base package `api`; JSON everywhere unless noted. Standard per-resource CRUD con
   | Area | Route | Allowed |
   |------|-------|---------|
   | Public | `api/auth/register`, `login`, `forgot-password`, `reset-password`; Swagger paths; `POST /api/payments/callback[:form]`; `POST /api/contact`; `POST /api/newsletter/subscribe`; all catalog GETs (hotels, rooms, foods, tickets, tour-places, attachments, reviews, promotions) | everyone |
-  | Realtime/payments (recently added, still open) | `/api/v1/bakong/**`, `POST /api/bookings`, `GET /api/admin/bookings`, `/api/owner/**`, `/ws-tourism/**` | `permitAll` (no role checks yet) |
+  | Realtime/payments | `POST /api/bookings`, `/api/v1/bakong/**`, `/ws-tourism/**` | `permitAll` |
+  | Dashboard (admin) | `GET /api/admin/**` | `ADMIN` |
+  | Dashboard (owner) | `/api/owner/**` | `ADMIN`, `OWNER` |
   | Admin module | `GET/POST/PUT/DELETE /api/management/**`, `/api/contact/**`, `/api/newsletter/**` | `ADMIN` |
   | Categories | `POST/PUT/DELETE /api/place-categories/**` | `ADMIN` |
-  | Business write | `POST/PUT/DELETE /api/hotels/**`, `/api/hotel-rooms/**`, `/api/room-types/**`, `/api/rooms/**`, `/api/restaurants/**`, `/api/foods/**`, `/api/food-categories/**`, `/api/promotions/**`, `/api/tour-places/**`; `POST/DELETE` of `api/tour-place-attachments/**` and `api/{hotels,rooms,foods,restaurants}/*/attachments` | `ADMIN`, `OWNER` |
+  | Business write | `POST/PUT/DELETE /api/hotels/**`, `/api/hotel-rooms/**`, `/api/room-types/**`, `/api/rooms/**`, `/api/restaurants/**`, `/api/foods/**`, `/api/food-categories/**`, `/api/promotions/**`, `/api/tour-places/**`, `/api/tickets/**`; `POST/DELETE` of `api/tour-place-attachments/**` and `api/{hotels,rooms,foods,restaurants}/*/attachments` | `ADMIN`, `OWNER` |
   | Restaurant ops | `GET /api/food-orders/restaurant/**`; `PUT /api/food-orders/*/status`; `GET /api/food-orders` (all orders), `GET /api/food-orders/status/**`; `GET /api/room-bookings` (all) | `ADMIN`, `OWNER` |
   | Ticket staff | `POST /api/ticket-bookings/verify`, `POST /api/ticket-bookings/*/use`; `GET /api/ticket-bookings` (all), `/status/**`, `/date`, `/ticket/**` | `ADMIN`, `OWNER` |
   | Booking views | `GET /api/room-bookings/status/**`, `/room/**`; `PUT /api/room-bookings/*` | `ADMIN`, `OWNER` |
