@@ -7,6 +7,8 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import com.example.spring_boot_project_api.enums.PaymentMethod;
+import com.example.spring_boot_project_api.enums.PaymentStatus;
 import com.example.spring_boot_project_api.model.Payments;
 
 @Repository
@@ -14,9 +16,9 @@ public interface PaymentRepository extends JpaRepository<Payments, Long> {
 
     List<Payments> findByTransactionId(String transactionId);
 
-    List<Payments> findByStatus(String status);
+    List<Payments> findByStatus(PaymentStatus status);
 
-    List<Payments> findByPaymentMethod(String paymentMethod);
+    List<Payments> findByPaymentMethod(PaymentMethod paymentMethod);
 
     List<Payments> findByAmountBetween(BigDecimal minAmount, BigDecimal maxAmount);
 

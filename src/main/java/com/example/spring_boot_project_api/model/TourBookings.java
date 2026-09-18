@@ -37,6 +37,9 @@ public class TourBookings {
     private BigDecimal totalPrice;
     private String status;
 
+    @Column(name = "payment_method", length = 70)
+    private String paymentMethod;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     @ToString.Exclude

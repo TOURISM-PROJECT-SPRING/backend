@@ -2,6 +2,8 @@ package com.example.spring_boot_project_api.service.impl;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,12 +35,14 @@ public class FoodServiceImpl implements FoodService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "foods", key = "#root.methodName")
     public List<FoodResponse> findAll() {
         return FoodMapper.toResponseList(foodRepository.findAll());
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "foods", key = "#root.methodName")
     public FoodResponse findById(Long id) {
         Foods food = foodRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Food", id));
@@ -47,12 +51,14 @@ public class FoodServiceImpl implements FoodService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "foods", key = "#root.methodName")
     public List<FoodResponse> search(String keyword) {
         return FoodMapper.toResponseList(foodRepository.findByNameContainingIgnoreCase(keyword));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "foods", key = "#root.methodName")
     public List<FoodResponse> findByRestaurantId(Long restaurantId) {
         if (!restaurantRepository.existsById(restaurantId)) {
             throw new ResourceNotFoundException("Restaurant", restaurantId);
@@ -62,6 +68,7 @@ public class FoodServiceImpl implements FoodService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "foods", key = "#root.methodName")
     public List<FoodResponse> findByFoodCategoryId(Long foodCategoryId) {
         if (!foodCategoryRepository.existsById(foodCategoryId)) {
             throw new ResourceNotFoundException("Food Category", foodCategoryId);
@@ -70,6 +77,7 @@ public class FoodServiceImpl implements FoodService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "foods", key = "#root.methodName")
     public FoodResponse create(FoodRequest request, MultipartFile image) {
         Restaurants restaurant = restaurantRepository.findById(request.getRestaurantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Restaurant", request.getRestaurantId()));
@@ -84,6 +92,7 @@ public class FoodServiceImpl implements FoodService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "foods", key = "#root.methodName")
     public FoodResponse update(Long id, FoodRequest request, MultipartFile image) {
         Foods food = foodRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Food", id));
@@ -101,6 +110,7 @@ public class FoodServiceImpl implements FoodService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "foods", key = "#root.methodName")
     public void delete(Long id) {
         if (!foodRepository.existsById(id)) {
             throw new ResourceNotFoundException("Food", id);

@@ -161,15 +161,15 @@ public class DataSeeder implements CommandLineRunner {
             userRepository.save(ownerUser);
             assignRole(ownerUser, role);
         }
-        if (!businessOwnerProfileRepository.existsByBusinessLicenseNo(licenseNo)) {
-            BusinesssOwnerProfiles profile = new BusinesssOwnerProfiles();
-            profile.setBusinessName(businessName);
-            profile.setBusinessLicenseNo(licenseNo);
-            profile.setVerificationStatus("VERIFIED");
-            profile.setVerifiedAt(LocalDate.now());
-            profile.setUsers(ownerUser);
-            businessOwnerProfileRepository.save(profile);
-        }
+        BusinesssOwnerProfiles profile = businessOwnerProfileRepository
+                .findByUsersId(ownerUser.getId())
+                .orElseGet(BusinesssOwnerProfiles::new);
+        profile.setUsers(ownerUser);
+        profile.setBusinessName(businessName);
+        profile.setBusinessLicenseNo(licenseNo);
+        profile.setVerificationStatus("VERIFIED");
+        profile.setVerifiedAt(LocalDate.now());
+        businessOwnerProfileRepository.save(profile);
     }
 
     private void seedDefaultTourist() {

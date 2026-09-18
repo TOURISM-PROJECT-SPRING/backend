@@ -18,6 +18,8 @@ public interface PromotionRepository extends JpaRepository<Promotions, Long> {
 
     List<Promotions> findByStatus(String status);
 
+    long countByStatus(String status);
+
     List<Promotions> findByStartAtBeforeAndEndAtAfter(LocalDateTime now, LocalDateTime sameNow);
 
     List<Promotions> findByHotelsId(Long hotelId);

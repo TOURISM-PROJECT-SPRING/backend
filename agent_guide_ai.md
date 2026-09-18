@@ -18,6 +18,8 @@ Spring Boot REST API.
 - **Security:** spring-boot-starter-security (`SecurityConfig` in `config/`)
 - **File/image uploads:** Cloudinary SDK (`cloudinary-http44`)
 - **PDF rendering:** OpenPDF
+- **Realtime:** spring-boot-starter-websocket (STOMP simple broker, endpoint `/ws-tourism`)
+- **Payments:** NBC Bakong KHQR via route `api/v1/bakong` (see Conventions)
 - **API docs:** springdoc-openapi-starter-webmvc-ui (Swagger UI)
 - **Config:** DB credentials come from environment variables (`DB_HOST`, `DB_PORT`, `DB_NAME`,
   `DB_USER`, `DB_PASSWORD`) via `springboot4-dotenv` (a `.env` file)
@@ -82,6 +84,20 @@ Base package `api`; JSON everywhere unless noted. Standard per-resource CRUD con
 - `api/ticket-bookings/{id}/eticket` — e-ticket (OpenPDF + QR via `util/QrCodeUtil`)
 - `api/room-bookings` — room bookings (+ `/user/{userId}/status/{status}`, `POST /{id}/cancel`)
 - `api/place-categories` — categories (create/update consume `multipart/form-data`)
+- `api/v1/bakong` — NBC Bakong KHQR payments (see Conventions): `POST /generate-qr`,
+  `POST /check-status`, `POST /simulate-payment?md5=` (sandbox helper)
+- `api/bookings`, `api/admin/bookings`, `api/admin/dashboard-stats`, `api/owner` — unified bookings + dashboards
+  (`AdminOwnerBookingController`, `AdminDashboardController`, `OwnerDashboardController`):
+  `POST /api/bookings` (unified ROOM/TICKET/FOOD_ORDER/TOUR checkout that also fires a realtime
+  notification; when the payment method is Bakong KHQR, the response embeds a freshly generated
+  `bakongQr` object — Base64 image + MD5 — for immediate display/polling), `GET /api/admin/bookings` (paged global feed with
+  `?type=&status=&search=&page=&size=` — page default 0, size default 20, max 200),
+  `GET /api/admin/dashboard-stats` (real DB aggregates: totals, booking breakdown,
+  non-cancelled revenue, pending orders, active promotions, 6-month revenue trend, recent
+  bookings), `GET /api/owner/bookings/{ownerId}`, and the `api/owner` group
+  (`/dashboard-stats`, `/bookings[?status=]`, `PUT /bookings/{bookingType}/{id}/status`,
+  `/services` GET/POST, `PATCH /services/{offeringType}/{id}/availability`,
+  `DELETE /services/{offeringType}/{id}`)
 - `api/{entity}/{entityId}/attachments` — attachment joins for User/Hotel/Room/Food/
   Restaurant `POST`, `GET`, `DELETE /{attachmentId}` — one central `attachments` table (Cloudinary
   metadata) linked via `user/hotel/room/tour_place/food/restaurant_attachments` junction tables
@@ -108,9 +124,12 @@ Base package `api`; JSON everywhere unless noted. Standard per-resource CRUD con
   | Area | Route | Allowed |
   |------|-------|---------|
   | Public | `api/auth/register`, `login`, `forgot-password`, `reset-password`; Swagger paths; `POST /api/payments/callback[:form]`; `POST /api/contact`; `POST /api/newsletter/subscribe`; all catalog GETs (hotels, rooms, foods, tickets, tour-places, attachments, reviews, promotions) | everyone |
+  | Realtime/payments | `POST /api/bookings`, `/api/v1/bakong/**`, `/ws-tourism/**` | `permitAll` |
+  | Dashboard (admin) | `GET /api/admin/**` | `ADMIN` |
+  | Dashboard (owner) | `/api/owner/**` | `ADMIN`, `OWNER` |
   | Admin module | `GET/POST/PUT/DELETE /api/management/**`, `/api/contact/**`, `/api/newsletter/**` | `ADMIN` |
   | Categories | `POST/PUT/DELETE /api/place-categories/**` | `ADMIN` |
-  | Business write | `POST/PUT/DELETE /api/hotels/**`, `/api/hotel-rooms/**`, `/api/room-types/**`, `/api/rooms/**`, `/api/restaurants/**`, `/api/foods/**`, `/api/food-categories/**`, `/api/promotions/**`, `/api/tour-places/**`; `POST/DELETE` of `api/tour-place-attachments/**` and `api/{hotels,rooms,foods,restaurants}/*/attachments` | `ADMIN`, `OWNER` |
+  | Business write | `POST/PUT/DELETE /api/hotels/**`, `/api/hotel-rooms/**`, `/api/room-types/**`, `/api/rooms/**`, `/api/restaurants/**`, `/api/foods/**`, `/api/food-categories/**`, `/api/promotions/**`, `/api/tour-places/**`, `/api/tickets/**`; `POST/DELETE` of `api/tour-place-attachments/**` and `api/{hotels,rooms,foods,restaurants}/*/attachments` | `ADMIN`, `OWNER` |
   | Restaurant ops | `GET /api/food-orders/restaurant/**`; `PUT /api/food-orders/*/status`; `GET /api/food-orders` (all orders), `GET /api/food-orders/status/**`; `GET /api/room-bookings` (all) | `ADMIN`, `OWNER` |
   | Ticket staff | `POST /api/ticket-bookings/verify`, `POST /api/ticket-bookings/*/use`; `GET /api/ticket-bookings` (all), `/status/**`, `/date`, `/ticket/**` | `ADMIN`, `OWNER` |
   | Booking views | `GET /api/room-bookings/status/**`, `/room/**`; `PUT /api/room-bookings/*` | `ADMIN`, `OWNER` |
@@ -177,7 +196,8 @@ the global handler translates them into consistent JSON responses.
 ```
 src/main/java/com/example/spring_boot_project_api/
 ├── SpringBootProjectApiApplication.java   # main entry point
-├── config/           # @Configuration classes (SecurityConfig, CorsConfig, OpenApiConfig, etc.)
+├── config/           # @Configuration classes (SecurityConfig, CorsConfig, OpenApiConfig,
+│                     # BakongConfig, WebSocketConfig, etc.)
 │                     # + AttachmentOrphanCleanupListener (JPA @PreRemove Cloudinary cleanup)
 ├── controller/        # @RestController — HTTP layer only, delegates to service
 ├── dto/
@@ -207,6 +227,7 @@ src/test/java/com/example/spring_boot_project_api/
 - **DTOs:** never expose JPA `model` classes directly over the API — always map to a
   `dto/request` or `dto/response` type via the `mapper` package.
 - **Services:** define an interface in `service/`, implementation in `service/impl/`.
+  (Exception: `BookingNotificationService` is a concrete `@Service` — it has no interface.)
 - **Errors:** throw specific exceptions from `exception/`, handled centrally by a
   `@RestControllerAdvice` — don't catch-and-swallow in controllers.
 - **Validation:** use `jakarta.validation` annotations on request DTOs; let Spring's validation
@@ -232,6 +253,18 @@ src/test/java/com/example/spring_boot_project_api/
   see the route→role table); catalog GETs stay public, and the auth-only endpoints require
   authentication. Passwords are BCrypt-encoded.
   JWT secret/lifetime come from env (`JWT_SECRET`, `JWT_EXPIRATION_MS`); never hardcode a real secret.
+- **Realtime (WebSocket/STOMP):** `config/WebSocketConfig` enables an in-memory simple broker
+  (`/topic`) with app prefix `/app` and exposes `/ws-tourism` (SockJS + native). `BookingNotificationService`
+  broadcasts `BookingNotificationDTO` events to `/topic/admin/bookings` and `/topic/owner/{ownerId}/bookings`
+  when a booking is created or its status changes.
+- **Bakong KHQR payments:** `config/BakongConfig` supplies the `bakong.*` properties (code defaults
+  only — not wired through `application.properties`/`.env`). `util/KhqrGenerator` builds EMVCo-compliant
+  KHQR strings + MD5 hashes; `BakongPaymentServiceImpl` renders a Base64 QR (`util/QrCodeUtil`), tracks
+  QR sessions in an in-memory `ConcurrentHashMap` (nothing persisted server-side), queries Bakong's
+  `check_transaction_by_md5` only when `bakong.api.token` is set, auto-confirms the matching
+  TICKET/ROOM/FOOD_ORDER/TOUR row on success, and persists a `BAKONG_KHQR` row into the `payments`
+  table (linked to the relevant booking; `Payments` FKs to each booking type are optional).
+  `POST /api/v1/bakong/simulate-payment` is a sandbox-only dev helper (no real bank funds).
 - **Attachment system (one central table + 6 junction tables):** there is exactly one `attachments`
   table (Cloudinary metadata only) and six junction entities — `UserAttachments`, `HotelAttachments`,
   `RoomAttachments`, `TourPlaceAttachments`, `FoodAttachments`, `RestaurantAttachments`. Each

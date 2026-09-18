@@ -2,6 +2,8 @@ package com.example.spring_boot_project_api.service.impl;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,12 +32,14 @@ public class HotelServiceImpl implements HotelService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "hotels", key = "#root.methodName")
     public List<HotelResponse> findAll() {
         return HotelMapper.toResponseList(hotelRepository.findAll());
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "hotels", key = "#root.methodName")
     public HotelResponse findById(Long id) {
         Hotels hotel = hotelRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel", id));
@@ -44,6 +48,7 @@ public class HotelServiceImpl implements HotelService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "hotels", key = "#root.methodName")
     public List<HotelResponse> searchByName(String keyword) {
         return HotelMapper.toResponseList(
                 hotelRepository.findByHotelNameContainingIgnoreCase(keyword));
@@ -51,6 +56,7 @@ public class HotelServiceImpl implements HotelService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "hotels", key = "#root.methodName")
     public List<HotelResponse> findByLocationId(Long districtId) {
         if (!locationRepository.existsById(districtId)) {
             throw new ResourceNotFoundException("Location", districtId);
@@ -60,6 +66,7 @@ public class HotelServiceImpl implements HotelService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "hotels", key = "#root.methodName")
     public List<HotelResponse> findByOwnerId(Long ownerId) {
         if (!userRepository.existsById(ownerId)) {
             throw new ResourceNotFoundException("User", ownerId);
@@ -68,6 +75,7 @@ public class HotelServiceImpl implements HotelService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "hotels", key = "#root.methodName")
     public HotelResponse create(HotelRequest request) {
         Location location = locationRepository.findById(request.getLocationId())
                 .orElseThrow(() -> new ResourceNotFoundException("Location", request.getLocationId()));
@@ -86,6 +94,7 @@ public class HotelServiceImpl implements HotelService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "hotels", key = "#root.methodName")
     public HotelResponse update(Long id, HotelRequest request) {
         Hotels hotel = hotelRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel", id));
@@ -102,6 +111,7 @@ public class HotelServiceImpl implements HotelService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "hotels", key = "#root.methodName")
     public void delete(Long id) {
         if (!hotelRepository.existsById(id)) {
             throw new ResourceNotFoundException("Hotel", id);

@@ -19,9 +19,13 @@ public class OwnerResponse {
     private String businessLicenseNo;
     private String verificationStatus;
     private LocalDate verifiedAt;
+    private String businessType;
     private Long userId;
     private String userName;
     private String userEmail;
+    private String address;
+    private String city;
+    private String phone;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

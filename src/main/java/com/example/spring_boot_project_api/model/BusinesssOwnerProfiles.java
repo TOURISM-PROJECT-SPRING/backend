@@ -28,7 +28,7 @@ public class BusinesssOwnerProfiles {
     private Long id;
 
     @Column(name = "business_name", nullable = false, length = 150)
-    private String  businessName;
+    private String businessName;
 
     @Column(name = "business_license_no", nullable = false)
     private String businessLicenseNo;
@@ -36,7 +36,7 @@ public class BusinesssOwnerProfiles {
     @Column(name = "verification_status", nullable = false)
     private String verificationStatus;
 
-    @Column(name = "verified_at", nullable = false)
+    @Column(name = "verified_at")
     private LocalDate verifiedAt;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
