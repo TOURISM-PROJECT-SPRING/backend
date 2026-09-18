@@ -2,6 +2,8 @@ package com.example.spring_boot_project_api.service.impl;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import com.example.spring_boot_project_api.dto.request.FoodCategoryRequest;
@@ -20,11 +22,13 @@ public class FoodCategoryServiceImpl implements FoodCategoryService {
     private final FoodCategoryRepository foodCategoryRepository;
 
     @Override
+    @Cacheable(cacheNames = "foodCategories", key = "#root.methodName")
     public List<FoodCategoryResponse> findAll() {
         return FoodCategoryMapper.toResponseList(foodCategoryRepository.findAll());
     }
 
     @Override
+    @Cacheable(cacheNames = "foodCategories", key = "#root.methodName")
     public FoodCategoryResponse findById(Long id) {
         FoodCategories category = foodCategoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Food category not found with id: " + id));
@@ -32,12 +36,14 @@ public class FoodCategoryServiceImpl implements FoodCategoryService {
     }
 
     @Override
+    @Cacheable(cacheNames = "foodCategories", key = "#root.methodName")
     public List<FoodCategoryResponse> search(String keyword) {
         return FoodCategoryMapper.toResponseList(
                 foodCategoryRepository.findByNameContainingIgnoreCase(keyword));
     }
 
     @Override
+    @CacheEvict(cacheNames = "foodCategories", key = "#root.methodName")
     public FoodCategoryResponse create(FoodCategoryRequest request) {
         if (foodCategoryRepository.existsByName(request.getName())) {
             throw new RuntimeException("Food category already exists with name: " + request.getName());
@@ -48,6 +54,7 @@ public class FoodCategoryServiceImpl implements FoodCategoryService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "foodCategories", key = "#root.methodName")
     public FoodCategoryResponse update(Long id, FoodCategoryRequest request) {
         FoodCategories category = foodCategoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Food category not found with id: " + id));
@@ -57,6 +64,7 @@ public class FoodCategoryServiceImpl implements FoodCategoryService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "foodCategories", key = "#root.methodName")
     public void delete(Long id) {
         if (!foodCategoryRepository.existsById(id)) {
             throw new RuntimeException("Food category not found with id: " + id);

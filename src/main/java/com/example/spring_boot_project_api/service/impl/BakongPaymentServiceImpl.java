@@ -20,10 +20,19 @@ import com.example.spring_boot_project_api.dto.request.BakongCheckStatusRequest;
 import com.example.spring_boot_project_api.dto.request.BakongQrGenerateRequest;
 import com.example.spring_boot_project_api.dto.response.BakongCheckStatusResponse;
 import com.example.spring_boot_project_api.dto.response.BakongQrResponse;
+import com.example.spring_boot_project_api.enums.PaymentMethod;
+import com.example.spring_boot_project_api.enums.PaymentStatus;
 import com.example.spring_boot_project_api.mapper.TicketBookingMapper;
+import com.example.spring_boot_project_api.model.FoodOrders;
+import com.example.spring_boot_project_api.model.Payments;
+import com.example.spring_boot_project_api.model.RoomBookings;
+import com.example.spring_boot_project_api.model.TicketBookings;
+import com.example.spring_boot_project_api.model.TourBookings;
 import com.example.spring_boot_project_api.repository.FoodOrderRepository;
+import com.example.spring_boot_project_api.repository.PaymentRepository;
 import com.example.spring_boot_project_api.repository.RoomBookingRepository;
 import com.example.spring_boot_project_api.repository.TicketBookingRepository;
+import com.example.spring_boot_project_api.repository.TourBookingRepository;
 import com.example.spring_boot_project_api.service.BakongPaymentService;
 import com.example.spring_boot_project_api.util.KhqrGenerator;
 import com.example.spring_boot_project_api.util.QrCodeUtil;
@@ -44,6 +53,8 @@ public class BakongPaymentServiceImpl implements BakongPaymentService {
     private final TicketBookingRepository ticketBookingRepository;
     private final RoomBookingRepository roomBookingRepository;
     private final FoodOrderRepository foodOrderRepository;
+    private final TourBookingRepository tourBookingRepository;
+    private final PaymentRepository paymentRepository;
 
     /**
      * In-memory transaction registry for tracking KHQR sessions and sandbox mode.
@@ -55,12 +66,16 @@ public class BakongPaymentServiceImpl implements BakongPaymentService {
             @Qualifier("bakongRestTemplate") RestTemplate restTemplate,
             TicketBookingRepository ticketBookingRepository,
             RoomBookingRepository roomBookingRepository,
-            FoodOrderRepository foodOrderRepository) {
+            FoodOrderRepository foodOrderRepository,
+            TourBookingRepository tourBookingRepository,
+            PaymentRepository paymentRepository) {
         this.bakongConfig = bakongConfig;
         this.restTemplate = restTemplate;
         this.ticketBookingRepository = ticketBookingRepository;
         this.roomBookingRepository = roomBookingRepository;
         this.foodOrderRepository = foodOrderRepository;
+        this.tourBookingRepository = tourBookingRepository;
+        this.paymentRepository = paymentRepository;
     }
 
     @Override
@@ -146,7 +161,8 @@ public class BakongPaymentServiceImpl implements BakongPaymentService {
                 BakongCheckStatusResponse liveResponse = callBakongOpenApi(md5, record);
                 if (STATUS_SUCCESS.equals(liveResponse.getStatus())) {
                     applyBookingConfirmation(record != null ? record.bookingId : request.getBookingId(),
-                            record != null ? record.bookingType : request.getBookingType());
+                            record != null ? record.bookingType : request.getBookingType(),
+                            liveResponse.getTransactionId(), record);
                     if (record != null) {
                         record.status = STATUS_SUCCESS;
                         record.paidAt = LocalDateTime.now();
@@ -199,7 +215,7 @@ public class BakongPaymentServiceImpl implements BakongPaymentService {
             record.transactionId = "TX-SIM-" + System.currentTimeMillis();
         }
 
-        applyBookingConfirmation(record.bookingId, record.bookingType);
+        applyBookingConfirmation(record.bookingId, record.bookingType, record.transactionId, record);
 
         log.info("Simulated Bakong payment success for MD5: {}, bookingId: {}", cleanMd5, record.bookingId);
         return buildStatusResponse(record, "Sandbox test payment confirmed successfully.");
@@ -257,9 +273,11 @@ public class BakongPaymentServiceImpl implements BakongPaymentService {
     }
 
     /**
-     * Automatically confirms the associated tour, room, or food booking.
+     * Automatically confirms the associated tour, room, or food booking and persists a
+     * successful KhqrPayment record in the payments table.
      */
-    private void applyBookingConfirmation(Long bookingId, String bookingType) {
+    private void applyBookingConfirmation(Long bookingId, String bookingType, String transactionId,
+            KhqrTransactionRecord record) {
         if (bookingId == null) {
             return;
         }
@@ -269,24 +287,84 @@ public class BakongPaymentServiceImpl implements BakongPaymentService {
             switch (type) {
                 case "TICKET" -> ticketBookingRepository.findById(bookingId).ifPresent(b -> {
                     b.setStatus(TicketBookingMapper.STATUS_CONFIRMED);
-                    ticketBookingRepository.save(b);
+                    TicketBookings saved = ticketBookingRepository.save(b);
+                    persistPayment(saved, saved.getTotalPrice(), type, transactionId, record);
                     log.info("Auto-confirmed TicketBooking #{}", bookingId);
                 });
                 case "ROOM" -> roomBookingRepository.findById(bookingId).ifPresent(b -> {
                     b.setStatus("CONFIRMED");
-                    roomBookingRepository.save(b);
+                    RoomBookings saved = roomBookingRepository.save(b);
+                    persistPayment(saved, saved.getAmount(), type, transactionId, record);
                     log.info("Auto-confirmed RoomBooking #{}", bookingId);
                 });
                 case "FOOD", "FOOD_ORDER" -> foodOrderRepository.findById(bookingId).ifPresent(b -> {
                     b.setStatus("CONFIRMED");
-                    foodOrderRepository.save(b);
+                    FoodOrders saved = foodOrderRepository.save(b);
+                    persistPayment(saved, saved.getTotalPrice(), type, transactionId, record);
                     log.info("Auto-confirmed FoodOrder #{}", bookingId);
+                });
+                case "TOUR", "TOUR_BOOKING" -> tourBookingRepository.findById(bookingId).ifPresent(b -> {
+                    b.setStatus("CONFIRMED");
+                    TourBookings saved = tourBookingRepository.save(b);
+                    persistPayment(saved, saved.getTotalPrice(), type, transactionId, record);
+                    log.info("Auto-confirmed TourBooking #{}", bookingId);
                 });
                 default -> log.debug("Unknown booking type: {}, skipping entity update", bookingType);
             }
         } catch (Exception e) {
             log.error("Failed to auto-confirm booking #{} (type: {}): {}", bookingId, bookingType, e.getMessage());
         }
+    }
+
+    /**
+     * Persists a successful Bakong KHQR payment against the referenced booking. Skips the insert
+     * when the same transaction id was already recorded (idempotency guard).
+     */
+    private void persistPayment(Object booking, BigDecimal amount, String bookingType,
+            String transactionId, KhqrTransactionRecord record) {
+        if (booking == null || amount == null) {
+            return;
+        }
+
+        String txId = (transactionId == null || transactionId.isBlank())
+                ? "BK-" + System.currentTimeMillis() : transactionId;
+        if (txId.length() > 100) {
+            txId = txId.substring(0, 100);
+        }
+
+        if (!paymentRepository.findByTransactionId(txId).isEmpty()) {
+            log.debug("Payment transaction {} already recorded, skipping", txId);
+            return;
+        }
+
+        String reference = (record != null && record.billNumber != null)
+                ? record.billNumber : "BK-" + System.currentTimeMillis();
+
+        Payments payment = new Payments();
+        payment.setPaymentReference(reference);
+        payment.setAmount(amount);
+        payment.setPaymentMethod(PaymentMethod.BAKONG_KHQR);
+        payment.setTransactionId(txId);
+        payment.setQrMd5(record != null ? record.md5 : null);
+        payment.setStatus(PaymentStatus.SUCCESS);
+        payment.setPaidAt(LocalDateTime.now());
+        payment.setExpiredAt(record != null ? record.expiresAt : null);
+
+        String type = (bookingType != null) ? bookingType.toUpperCase() : "";
+        switch (type) {
+            case "TICKET" -> payment.setTicketBookings((TicketBookings) booking);
+            case "ROOM" -> payment.setRoomBookings((RoomBookings) booking);
+            case "FOOD", "FOOD_ORDER" -> payment.setFoodOrders((FoodOrders) booking);
+            case "TOUR", "TOUR_BOOKING" -> payment.setTourBookings((TourBookings) booking);
+            default -> {
+                log.debug("Unknown booking type: {}, payment not persisted", type);
+                return;
+            }
+        }
+
+        paymentRepository.save(payment);
+        log.info("Persisted Bakong KHQR payment record (ref: {}, tx: {}) for booking type: {}",
+                reference, txId, type);
     }
 
     private BakongCheckStatusResponse buildStatusResponse(KhqrTransactionRecord record, String message) {

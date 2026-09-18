@@ -1,12 +1,17 @@
 package com.example.spring_boot_project_api.service.impl;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.spring_boot_project_api.dto.request.OwnerAdminRequest;
 import com.example.spring_boot_project_api.dto.request.UserAdminUpdateRequest;
+import com.example.spring_boot_project_api.dto.response.ApiResponse;
 import com.example.spring_boot_project_api.dto.response.MessageResponse;
 import com.example.spring_boot_project_api.dto.response.NotificationResponse;
 import com.example.spring_boot_project_api.dto.response.OwnerResponse;
@@ -17,6 +22,9 @@ import com.example.spring_boot_project_api.dto.response.RoleResponse;
 import com.example.spring_boot_project_api.dto.response.TourGuideResponse;
 import com.example.spring_boot_project_api.dto.response.TourPackageResponse;
 import com.example.spring_boot_project_api.dto.response.UserResponse;
+import com.example.spring_boot_project_api.enums.GenderEnum;
+import com.example.spring_boot_project_api.enums.UserEnum;
+import com.example.spring_boot_project_api.exception.ResourceNotFoundException;
 import com.example.spring_boot_project_api.model.BusinesssOwnerProfiles;
 import com.example.spring_boot_project_api.model.Notifications;
 import com.example.spring_boot_project_api.model.Payments;
@@ -37,7 +45,6 @@ import com.example.spring_boot_project_api.repository.TourGuideRepository;
 import com.example.spring_boot_project_api.repository.TourPackageRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.repository.UserRoleRepository;
-import com.example.spring_boot_project_api.exception.ResourceNotFoundException;
 import com.example.spring_boot_project_api.service.ManagementService;
 
 import lombok.RequiredArgsConstructor;
@@ -57,6 +64,7 @@ public class ManagementServiceImpl implements ManagementService {
     private final PaymentRepository paymentRepository;
     private final TourPackageRepository tourPackageRepository;
     private final TourGuideRepository tourGuideRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public List<UserResponse> findAllUsers() {
@@ -67,8 +75,9 @@ public class ManagementServiceImpl implements ManagementService {
 
     @Override
     public UserResponse findUserById(Long id) {
-        return toUserResponse(userRepository.findById(id).orElseThrow(
-                () -> new IllegalArgumentException("User not found with id: " + id)));
+        return userRepository.findById(id)
+                .map(this::toUserResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("User", id));
     }
 
     @Override
@@ -77,42 +86,31 @@ public class ManagementServiceImpl implements ManagementService {
         Users user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
 
-        userRepository.findByUsername(request.getUsername())
-                .filter(existing -> !existing.getId().equals(id))
-                .ifPresent(existing -> {
-                    throw new IllegalArgumentException("Username is already taken");
-                });
-        userRepository.findByEmail(request.getEmail())
-                .filter(existing -> !existing.getId().equals(id))
-                .ifPresent(existing -> {
-                    throw new IllegalArgumentException("Email is already registered");
-                });
+        if (!user.getEmail().equalsIgnoreCase(request.getEmail())
+                && userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email is already taken: " + request.getEmail());
+        }
+        if (!user.getUsername().equalsIgnoreCase(request.getUsername())
+                && userRepository.existsByUsername(request.getUsername())) {
+            throw new IllegalArgumentException("Username is already taken: " + request.getUsername());
+        }
 
         user.setFullname(request.getFullname());
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
-        if (request.getGender() != null) {
-            user.setGender(request.getGender());
-        }
-        user.setAddress(request.getAddress());
-        if (request.getDateOfBirth() != null) {
-            user.setDateOfBirth(request.getDateOfBirth());
-        }
-        if (request.getStatus() != null) {
-            user.setStatus(request.getStatus());
-        }
+        if (request.getGender() != null) user.setGender(request.getGender());
+        if (request.getAddress() != null) user.setAddress(request.getAddress());
+        if (request.getDateOfBirth() != null) user.setDateOfBirth(request.getDateOfBirth());
+        if (request.getStatus() != null) user.setStatus(request.getStatus());
 
         if (request.getRoles() != null) {
-            userRoleRepository.deleteByUserId(id);
             user.getUserRoles().clear();
             for (String roleName : request.getRoles()) {
-                Roles role = roleRepository.findByName(roleName.toUpperCase())
-                        .orElseThrow(() -> new IllegalArgumentException(
-                                "Role not found: " + roleName));
+                Roles role = roleRepository.findByName(roleName)
+                        .orElseThrow(() -> new ResourceNotFoundException("Role name: " + roleName));
                 UserRoles userRole = new UserRoles();
                 userRole.setUser(user);
                 userRole.setRole(role);
-                userRoleRepository.save(userRole);
                 user.getUserRoles().add(userRole);
             }
         }
@@ -138,10 +136,233 @@ public class ManagementServiceImpl implements ManagementService {
     }
 
     @Override
+    public OwnerResponse findOwnerById(Long id) {
+        return businessOwnerProfileRepository.findById(id)
+                .map(this::toOwnerResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("Business Owner Profile", id));
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<OwnerResponse> createOwner(OwnerAdminRequest request) {
+        Users user = null;
+        if (request.getUserId() != null) {
+            user = userRepository.findById(request.getUserId())
+                    .orElseThrow(() -> new ResourceNotFoundException("User", request.getUserId()));
+        } else if (request.getUserEmail() != null && !request.getUserEmail().isBlank()) {
+            String email = request.getUserEmail().trim().toLowerCase();
+            user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) {
+                user = new Users();
+                String fullname = (request.getUserName() != null && !request.getUserName().isBlank())
+                        ? request.getUserName().trim()
+                        : "Business Owner";
+                String baseUsername = email.contains("@") ? email.substring(0, email.indexOf('@')) : "owner";
+                String username = baseUsername;
+                int counter = 1;
+                while (userRepository.existsByUsername(username)) {
+                    username = baseUsername + "_" + counter++;
+                }
+                user.setFullname(fullname);
+                user.setEmail(email);
+                user.setUsername(username);
+                user.setPassword(passwordEncoder.encode("owner123"));
+                user.setGender(GenderEnum.Male);
+                user.setStatus(UserEnum.Online);
+                if (request.getAddress() != null && !request.getAddress().isBlank()) {
+                    user.setAddress(request.getAddress().trim());
+                }
+                user = userRepository.save(user);
+
+                // Assign OWNER role
+                Roles ownerRole = roleRepository.findByName("OWNER")
+                        .orElseGet(() -> {
+                            Roles r = new Roles();
+                            r.setName("OWNER");
+                            return roleRepository.save(r);
+                        });
+                UserRoles ur = new UserRoles();
+                ur.setUser(user);
+                ur.setRole(ownerRole);
+                userRoleRepository.save(ur);
+            }
+        }
+
+        if (user == null) {
+            // Pick or create fallback owner user
+            user = userRepository.findAll().stream()
+                    .filter(u -> u.getUserRoles().stream()
+                            .anyMatch(ur -> ur.getRole() != null && "OWNER".equalsIgnoreCase(ur.getRole().getName())))
+                    .findFirst()
+                    .orElseGet(() -> {
+                        Users fallback = new Users();
+                        fallback.setFullname("Business Owner");
+                        fallback.setUsername("owner_" + UUID.randomUUID().toString().substring(0, 8));
+                        fallback.setEmail("owner_" + System.currentTimeMillis() + "@smart-tourism.com");
+                        fallback.setPassword(passwordEncoder.encode("owner123"));
+                        fallback.setGender(GenderEnum.Male);
+                        fallback.setStatus(UserEnum.Online);
+                        return userRepository.save(fallback);
+                    });
+        }
+
+        String license = request.getBusinessLicenseNo();
+        if (license == null || license.isBlank()) {
+            license = "LIC-" + System.currentTimeMillis();
+        } else if (businessOwnerProfileRepository.existsByBusinessLicenseNo(license)) {
+            license = license + "-" + UUID.randomUUID().toString().substring(0, 4);
+        }
+
+        BusinesssOwnerProfiles profile = new BusinesssOwnerProfiles();
+        profile.setBusinessName(request.getBusinessName());
+        profile.setBusinessLicenseNo(license);
+
+        String status = (request.getVerificationStatus() != null && !request.getVerificationStatus().isBlank())
+                ? request.getVerificationStatus().trim().toUpperCase()
+                : "PENDING";
+        profile.setVerificationStatus(status);
+        if ("VERIFIED".equalsIgnoreCase(status)) {
+            profile.setVerifiedAt(LocalDate.now());
+        } else {
+            profile.setVerifiedAt(null);
+        }
+        profile.setUsers(user);
+
+        return ApiResponse.<OwnerResponse>builder()
+                .message("Owner created successfully")
+                .data(toOwnerResponse(businessOwnerProfileRepository.save(profile)))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public OwnerResponse updateOwner(Long id, OwnerAdminRequest request) {
+        BusinesssOwnerProfiles profile = businessOwnerProfileRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Business Owner Profile", id));
+
+        if (request.getBusinessName() != null && !request.getBusinessName().isBlank()) {
+            profile.setBusinessName(request.getBusinessName().trim());
+        }
+        if (request.getBusinessLicenseNo() != null && !request.getBusinessLicenseNo().isBlank()) {
+            profile.setBusinessLicenseNo(request.getBusinessLicenseNo().trim());
+        }
+        if (request.getVerificationStatus() != null && !request.getVerificationStatus().isBlank()) {
+            String newStatus = request.getVerificationStatus().trim().toUpperCase();
+            profile.setVerificationStatus(newStatus);
+            if ("VERIFIED".equalsIgnoreCase(newStatus)) {
+                if (profile.getVerifiedAt() == null) {
+                    profile.setVerifiedAt(LocalDate.now());
+                }
+            } else {
+                profile.setVerifiedAt(null);
+            }
+        }
+
+        if (profile.getUsers() != null) {
+            Users user = profile.getUsers();
+            boolean userChanged = false;
+            if (request.getUserName() != null && !request.getUserName().isBlank()) {
+                user.setFullname(request.getUserName().trim());
+                userChanged = true;
+            }
+            if (request.getUserEmail() != null && !request.getUserEmail().isBlank()
+                    && !request.getUserEmail().equalsIgnoreCase(user.getEmail())) {
+                String newEmail = request.getUserEmail().trim().toLowerCase();
+                if (!userRepository.existsByEmail(newEmail)) {
+                    user.setEmail(newEmail);
+                    userChanged = true;
+                }
+            }
+            if (request.getAddress() != null) {
+                user.setAddress(request.getAddress().trim());
+                userChanged = true;
+            }
+            if (userChanged) {
+                userRepository.save(user);
+            }
+        }
+
+        return toOwnerResponse(businessOwnerProfileRepository.save(profile));
+    }
+
+    @Override
+    @Transactional
+    public OwnerResponse verifyOwner(Long id, String status) {
+        BusinesssOwnerProfiles profile = businessOwnerProfileRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Business Owner Profile", id));
+
+        String normalized = (status != null && !status.isBlank())
+                ? status.trim().toUpperCase()
+                : "VERIFIED";
+        profile.setVerificationStatus(normalized);
+        if ("VERIFIED".equalsIgnoreCase(normalized)) {
+            profile.setVerifiedAt(LocalDate.now());
+        } else {
+            profile.setVerifiedAt(null);
+        }
+        return toOwnerResponse(businessOwnerProfileRepository.save(profile));
+    }
+
+    @Override
+    @Transactional
+    public MessageResponse deleteOwner(Long id) {
+        if (!businessOwnerProfileRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Business Owner Profile", id);
+        }
+        businessOwnerProfileRepository.deleteById(id);
+        return MessageResponse.builder().message("Business account deleted successfully").build();
+    }
+
+    @Override
     public List<RoleResponse> findAllRoles() {
         return roleRepository.findAll().stream()
                 .map(this::toRoleResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<RoleResponse> createRole(String name) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Role name cannot be empty");
+        }
+        String cleanName = name.trim().toUpperCase();
+        return roleRepository.findByName(cleanName)
+                .map(r -> ApiResponse.<RoleResponse>builder()
+                        .message("Role created successfully")
+                        .data(toRoleResponse(r))
+                        .build())
+                .orElseGet(() -> {
+                    Roles r = new Roles();
+                    r.setName(cleanName);
+                    return ApiResponse.<RoleResponse>builder()
+                            .message("Role created successfully")
+                            .data(toRoleResponse(roleRepository.save(r)))
+                            .build();
+                });
+    }
+
+    @Override
+    @Transactional
+    public RoleResponse updateRole(Long id, String name) {
+        Roles role = roleRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Role", id));
+        if (name != null && !name.isBlank()) {
+            role.setName(name.trim().toUpperCase());
+        }
+        return toRoleResponse(roleRepository.save(role));
+    }
+
+    @Override
+    @Transactional
+    public MessageResponse deleteRole(Long id) {
+        Roles role = roleRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Role", id));
+        if ("ADMIN".equalsIgnoreCase(role.getName())) {
+            throw new IllegalArgumentException("Cannot delete ADMIN system role");
+        }
+        roleRepository.delete(role);
+        return MessageResponse.builder().message("Role deleted successfully").build();
     }
 
     @Override
@@ -208,15 +429,45 @@ public class ManagementServiceImpl implements ManagementService {
 
     private OwnerResponse toOwnerResponse(BusinesssOwnerProfiles o) {
         if (o == null) return null;
+
+        String bName = o.getBusinessName() != null ? o.getBusinessName() : "";
+        String bLic = o.getBusinessLicenseNo() != null ? o.getBusinessLicenseNo() : "";
+        String bType = "hotel";
+        String lowerName = bName.toLowerCase();
+        String upperLic = bLic.toUpperCase();
+        if (upperLic.contains("REST") || lowerName.matches(".*(dining|cuisine|restaurant|bistro|cafe|food).*")) {
+            bType = "restaurant";
+        } else if (upperLic.contains("TOUR") || lowerName.matches(".*(tour|adventure|expedition|guide|travel).*")) {
+            bType = "tour";
+        }
+
+        String userAddress = o.getUsers() != null ? o.getUsers().getAddress() : null;
+        String city = "Siem Reap";
+        if (userAddress != null) {
+            String lowerAddr = userAddress.toLowerCase();
+            if (lowerAddr.contains("phnom penh")) city = "Phnom Penh";
+            else if (lowerAddr.contains("siem reap")) city = "Siem Reap";
+            else if (lowerAddr.contains("kampot")) city = "Kampot";
+            else if (lowerAddr.contains("koh kong")) city = "Koh Kong";
+            else if (lowerAddr.contains("battambang")) city = "Battambang";
+            else if (lowerAddr.contains("kratie")) city = "Kratie";
+            else if (lowerAddr.contains("sihanoukville")) city = "Sihanoukville";
+            else if (lowerAddr.contains("kep")) city = "Kep";
+        }
+
         return OwnerResponse.builder()
                 .id(o.getId())
                 .businessName(o.getBusinessName())
                 .businessLicenseNo(o.getBusinessLicenseNo())
                 .verificationStatus(o.getVerificationStatus())
                 .verifiedAt(o.getVerifiedAt())
+                .businessType(bType)
                 .userId(o.getUsers() != null ? o.getUsers().getId() : null)
                 .userName(o.getUsers() != null ? o.getUsers().getFullname() : null)
                 .userEmail(o.getUsers() != null ? o.getUsers().getEmail() : null)
+                .address(userAddress)
+                .city(city)
+                .phone(null)
                 .createdAt(o.getCreatedAt())
                 .updatedAt(o.getUpdatedAt())
                 .build();
@@ -227,7 +478,7 @@ public class ManagementServiceImpl implements ManagementService {
         return RoleResponse.builder()
                 .id(r.getId())
                 .name(r.getName())
-                .userCount((long) r.getUserRoles().size())
+                .userCount((long) (r.getUserRoles() != null ? r.getUserRoles().size() : 0))
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
                 .build();
@@ -235,7 +486,7 @@ public class ManagementServiceImpl implements ManagementService {
 
     private ReviewResponse toReviewResponse(Reviews r) {
         if (r == null) return null;
-        String targetType = "OTHER";
+        String targetType = "UNKNOWN";
         Long targetId = null;
         String targetName = null;
         if (r.getTourPlace() != null) {
@@ -336,9 +587,9 @@ public class ManagementServiceImpl implements ManagementService {
         return PaymentResponse.builder()
                 .id(p.getId())
                 .amount(p.getAmount())
-                .paymentMethod(p.getPaymentMethod())
+                .paymentMethod(p.getPaymentMethod() != null ? p.getPaymentMethod().name() : null)
                 .transactionId(p.getTransactionId())
-                .status(p.getStatus())
+                .status(p.getStatus() != null ? p.getStatus().name() : null)
                 .paidAt(p.getPaidAt())
                 .bookingType(bookingType)
                 .referenceId(referenceId)

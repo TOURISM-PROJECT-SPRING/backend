@@ -2,16 +2,23 @@ package com.example.spring_boot_project_api.controller;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.spring_boot_project_api.dto.request.OwnerAdminRequest;
+import com.example.spring_boot_project_api.dto.request.OwnerVerifyRequest;
+import com.example.spring_boot_project_api.dto.request.RoleCreateRequest;
 import com.example.spring_boot_project_api.dto.request.UserAdminUpdateRequest;
+import com.example.spring_boot_project_api.dto.response.ApiResponse;
 import com.example.spring_boot_project_api.dto.response.MessageResponse;
 import com.example.spring_boot_project_api.dto.response.NotificationResponse;
 import com.example.spring_boot_project_api.dto.response.OwnerResponse;
@@ -57,14 +64,63 @@ public class ManagementController {
         return ResponseEntity.ok(managementService.deleteUser(id));
     }
 
+    // Owner / Business Management
     @GetMapping("/owners")
     public ResponseEntity<List<OwnerResponse>> getOwners() {
         return ResponseEntity.ok(managementService.findAllOwners());
     }
 
+    @GetMapping("/owners/{id}")
+    public ResponseEntity<OwnerResponse> getOwnerById(@PathVariable Long id) {
+        return ResponseEntity.ok(managementService.findOwnerById(id));
+    }
+
+    @PostMapping("/owners")
+    public ResponseEntity<ApiResponse<OwnerResponse>> createOwner(@RequestBody @Valid OwnerAdminRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(managementService.createOwner(request));
+    }
+
+    @PutMapping("/owners/{id}")
+    public ResponseEntity<OwnerResponse> updateOwner(
+            @PathVariable Long id,
+            @RequestBody @Valid OwnerAdminRequest request) {
+        return ResponseEntity.ok(managementService.updateOwner(id, request));
+    }
+
+    @PatchMapping("/owners/{id}/verify")
+    public ResponseEntity<OwnerResponse> verifyOwner(
+            @PathVariable Long id,
+            @RequestBody OwnerVerifyRequest request) {
+        String status = request != null ? request.getStatus() : "VERIFIED";
+        return ResponseEntity.ok(managementService.verifyOwner(id, status));
+    }
+
+    @DeleteMapping("/owners/{id}")
+    public ResponseEntity<MessageResponse> deleteOwner(@PathVariable Long id) {
+        return ResponseEntity.ok(managementService.deleteOwner(id));
+    }
+
+    // Roles Management
     @GetMapping("/roles")
     public ResponseEntity<List<RoleResponse>> getRoles() {
         return ResponseEntity.ok(managementService.findAllRoles());
+    }
+
+    @PostMapping("/roles")
+    public ResponseEntity<ApiResponse<RoleResponse>> createRole(@RequestBody @Valid RoleCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(managementService.createRole(request.getName()));
+    }
+
+    @PutMapping("/roles/{id}")
+    public ResponseEntity<RoleResponse> updateRole(
+            @PathVariable Long id,
+            @RequestBody @Valid RoleCreateRequest request) {
+        return ResponseEntity.ok(managementService.updateRole(id, request.getName()));
+    }
+
+    @DeleteMapping("/roles/{id}")
+    public ResponseEntity<MessageResponse> deleteRole(@PathVariable Long id) {
+        return ResponseEntity.ok(managementService.deleteRole(id));
     }
 
     @GetMapping("/reviews")

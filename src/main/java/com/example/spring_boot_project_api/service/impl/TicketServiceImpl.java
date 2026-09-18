@@ -3,6 +3,8 @@ package com.example.spring_boot_project_api.service.impl;
 import java.math.BigDecimal;
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,18 +30,21 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tickets", key = "#root.methodName")
     public List<TicketResponse> findAll() {
         return TicketMapper.toResponseList(ticketRepository.findAll());
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tickets", key = "#root.methodName")
     public List<TicketResponse> findAvailable() {
         return TicketMapper.toResponseList(ticketRepository.findByIsAvailableTrue());
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tickets", key = "#root.methodName")
     public TicketResponse findById(Long id) {
         Tickets ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket", id));
@@ -48,6 +53,7 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tickets", key = "#root.methodName")
     public List<TicketResponse> findByTourismPlaceId(Long tourismPlaceId) {
         if (!tourismPlaceRepository.existsById(tourismPlaceId)) {
             throw new ResourceNotFoundException("Tourism place", tourismPlaceId);
@@ -58,17 +64,20 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tickets", key = "#root.methodName")
     public List<TicketResponse> search(String keyword) {
         return TicketMapper.toResponseList(ticketRepository.findByNameContainingIgnoreCase(keyword));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tickets", key = "#root.methodName")
     public List<TicketResponse> findByPriceBetween(BigDecimal min, BigDecimal max) {
         return TicketMapper.toResponseList(ticketRepository.findByPriceBetween(min, max));
     }
 
     @Override
+    @CacheEvict(cacheNames = "tickets", key = "#root.methodName")
     public TicketResponse create(TicketRequest request) {
         TourPlaces place = tourismPlaceRepository.findById(request.getTourismPlaceId())
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -79,6 +88,7 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "tickets", key = "#root.methodName")
     public TicketResponse update(Long id, TicketRequest request) {
         Tickets ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket", id));
@@ -91,6 +101,7 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "tickets", key = "#root.methodName")
     public void delete(Long id) {
         if (!ticketRepository.existsById(id)) {
             throw new ResourceNotFoundException("Ticket", id);

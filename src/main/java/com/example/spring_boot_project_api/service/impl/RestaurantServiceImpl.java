@@ -3,6 +3,8 @@ package com.example.spring_boot_project_api.service.impl;
 import java.time.LocalTime;
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,12 +30,14 @@ public class RestaurantServiceImpl implements RestaurantService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "restaurants", key = "#root.methodName")
     public List<RestaurantResponse> findAll() {
         return RestaurantMapper.toResponseList(restaurantRepository.findAll());
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "restaurants", key = "#root.methodName")
     public RestaurantResponse findById(Long id) {
         Restaurants restaurant = restaurantRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Restaurant", id));
@@ -42,6 +46,7 @@ public class RestaurantServiceImpl implements RestaurantService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "restaurants", key = "#root.methodName")
     public List<RestaurantResponse> search(String keyword) {
         return RestaurantMapper.toResponseList(
                 restaurantRepository.findByNameContainingIgnoreCase(keyword));
@@ -49,6 +54,7 @@ public class RestaurantServiceImpl implements RestaurantService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "restaurants", key = "#root.methodName")
     public List<RestaurantResponse> findByTourismPlaceId(Long tourismPlaceId) {
         if (!tourismPlaceRepository.existsById(tourismPlaceId)) {
             throw new ResourceNotFoundException("Tourism Place", tourismPlaceId);
@@ -58,6 +64,7 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "restaurants", key = "#root.methodName")
     public RestaurantResponse create(RestaurantRequest request) {
         validateHours(request.getOpenTime(), request.getCloseTime());
 
@@ -71,6 +78,7 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "restaurants", key = "#root.methodName")
     public RestaurantResponse update(Long id, RestaurantRequest request) {
         validateHours(request.getOpenTime(), request.getCloseTime());
 
@@ -87,6 +95,7 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "restaurants", key = "#root.methodName")
     public void delete(Long id) {
         if (!restaurantRepository.existsById(id)) {
             throw new ResourceNotFoundException("Restaurant", id);

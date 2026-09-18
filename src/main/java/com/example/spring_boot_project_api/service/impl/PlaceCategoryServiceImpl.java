@@ -2,6 +2,8 @@ package com.example.spring_boot_project_api.service.impl;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import com.example.spring_boot_project_api.dto.request.PlaceCategoryRequest;
@@ -20,11 +22,13 @@ public class PlaceCategoryServiceImpl implements PlaceCategoryService {
     private final PlaceCategoryRepository placeCategoryRepository;
 
     @Override
+    @Cacheable(cacheNames = "placeCategories", key = "#root.methodName")
     public List<PlaceCategoryResponse> findAll() {
         return PlaceCategoryMapper.toResponseList(placeCategoryRepository.findAll());
     }
 
     @Override
+    @Cacheable(cacheNames = "placeCategories", key = "#root.methodName")
     public PlaceCategoryResponse findById(Long id) {
         PlaceCategoties category = placeCategoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Place category not found with id: " + id));
@@ -32,12 +36,14 @@ public class PlaceCategoryServiceImpl implements PlaceCategoryService {
     }
 
     @Override
+    @Cacheable(cacheNames = "placeCategories", key = "#root.methodName")
     public List<PlaceCategoryResponse> search(String keyword) {
         return PlaceCategoryMapper.toResponseList(
                 placeCategoryRepository.findByNameContainingIgnoreCase(keyword));
     }
 
     @Override
+    @CacheEvict(cacheNames = "placeCategories", key = "#root.methodName")
     public PlaceCategoryResponse create(PlaceCategoryRequest request) {
         if (placeCategoryRepository.existsByName(request.getName())) {
             throw new RuntimeException("Place category already exists with name: " + request.getName());
@@ -48,6 +54,7 @@ public class PlaceCategoryServiceImpl implements PlaceCategoryService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "placeCategories", key = "#root.methodName")
     public PlaceCategoryResponse update(Long id, PlaceCategoryRequest request) {
         PlaceCategoties category = placeCategoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Place category not found with id: " + id));
@@ -58,6 +65,7 @@ public class PlaceCategoryServiceImpl implements PlaceCategoryService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "placeCategories", key = "#root.methodName")
     public void delete(Long id) {
         if (!placeCategoryRepository.existsById(id)) {
             throw new RuntimeException("Place category not found with id: " + id);

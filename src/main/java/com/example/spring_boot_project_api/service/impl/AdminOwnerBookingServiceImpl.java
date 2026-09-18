@@ -10,7 +10,9 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.spring_boot_project_api.dto.request.BakongQrGenerateRequest;
 import com.example.spring_boot_project_api.dto.request.BookingOrderRequest;
+import com.example.spring_boot_project_api.dto.response.BakongQrResponse;
 import com.example.spring_boot_project_api.dto.response.BookingFeedPageResponse;
 import com.example.spring_boot_project_api.dto.response.UnifiedBookingResponse;
 import com.example.spring_boot_project_api.model.FoodOrders;
@@ -20,6 +22,7 @@ import com.example.spring_boot_project_api.model.Rooms;
 import com.example.spring_boot_project_api.model.TicketBookings;
 import com.example.spring_boot_project_api.model.Tickets;
 import com.example.spring_boot_project_api.model.TourBookings;
+import com.example.spring_boot_project_api.model.TourPackages;
 import com.example.spring_boot_project_api.model.Users;
 import com.example.spring_boot_project_api.repository.FoodOrderRepository;
 import com.example.spring_boot_project_api.repository.RestaurantRepository;
@@ -28,8 +31,10 @@ import com.example.spring_boot_project_api.repository.RoomRepository;
 import com.example.spring_boot_project_api.repository.TicketBookingRepository;
 import com.example.spring_boot_project_api.repository.TicketRepository;
 import com.example.spring_boot_project_api.repository.TourBookingRepository;
+import com.example.spring_boot_project_api.repository.TourPackageRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.service.AdminOwnerBookingService;
+import com.example.spring_boot_project_api.service.BakongPaymentService;
 import com.example.spring_boot_project_api.service.BookingNotificationService;
 
 import lombok.RequiredArgsConstructor;
@@ -48,7 +53,9 @@ public class AdminOwnerBookingServiceImpl implements AdminOwnerBookingService {
     private final RoomRepository roomRepository;
     private final TicketRepository ticketRepository;
     private final RestaurantRepository restaurantRepository;
+    private final TourPackageRepository tourPackageRepository;
     private final BookingNotificationService notificationService;
+    private final BakongPaymentService bakongPaymentService;
 
     @Override
     @Transactional
@@ -99,6 +106,18 @@ public class AdminOwnerBookingServiceImpl implements AdminOwnerBookingService {
                 FoodOrders saved = foodOrderRepository.save(fo);
                 response = mapFoodOrder(saved);
             }
+            case "TOUR", "TOUR_BOOKING" -> {
+                TourPackages tourPackage = resolveTourPackage(request.getReferenceId());
+                TourBookings tb = new TourBookings();
+                tb.setUser(customer);
+                tb.setTourPackages(tourPackage);
+                tb.setNumPeople(request.getQuantity() != null ? request.getQuantity() : 1);
+                tb.setTourDate(parseDate(request.getBookingDate()));
+                tb.setTotalPrice(request.getTotalAmount());
+                tb.setStatus("PENDING");
+                TourBookings saved = tourBookingRepository.save(tb);
+                response = mapTourBooking(saved);
+            }
             default -> {
                 response = UnifiedBookingResponse.builder()
                         .id("ORD-" + System.currentTimeMillis())
@@ -122,7 +141,40 @@ public class AdminOwnerBookingServiceImpl implements AdminOwnerBookingService {
         // Trigger real-time WebSocket notifications to Admin and Owner
         notificationService.notifyNewBooking(response);
 
+        // For Bakong KHQR checkout, attach a freshly generated dynamic QR code to the response
+        enhanceWithBakongQr(response);
+
         return response;
+    }
+
+    /**
+     * When the booking is paid via Bakong KHQR, generates a dynamic KHQR for the booking and
+     * attaches it (Base64 image + MD5) so the caller can display/poll it immediately.
+     */
+    private void enhanceWithBakongQr(UnifiedBookingResponse response) {
+        if (response == null || response.getRawId() == null) {
+            return;
+        }
+        String method = response.getPaymentMethod();
+        boolean isBakong = method == null || method.toUpperCase().contains("BAKONG")
+                || method.equalsIgnoreCase("KHQR");
+        if (!isBakong) {
+            return;
+        }
+
+        try {
+            BakongQrResponse qr = bakongPaymentService.generateKhqr(
+                    BakongQrGenerateRequest.builder()
+                            .bookingId(response.getRawId())
+                            .bookingType(response.getBookingType())
+                            .amount(response.getTotalAmount())
+                            .build());
+            response.setBakongQr(qr);
+            log.info("Bakong KHQR attached to booking {} (md5: {})",
+                    response.getId(), qr != null ? qr.getMd5() : null);
+        } catch (Exception e) {
+            log.warn("Could not generate Bakong KHQR for booking {}: {}", response.getId(), e.getMessage());
+        }
     }
 
     @Override
@@ -378,6 +430,18 @@ public class AdminOwnerBookingServiceImpl implements AdminOwnerBookingService {
     private Restaurants getFirstRestaurant() {
         return restaurantRepository.findAll().stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("No restaurants available in system"));
+    }
+
+    private TourPackages resolveTourPackage(Long refId) {
+        if (refId != null) {
+            return tourPackageRepository.findById(refId).orElseGet(this::getFirstTourPackage);
+        }
+        return getFirstTourPackage();
+    }
+
+    private TourPackages getFirstTourPackage() {
+        return tourPackageRepository.findAll().stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("No tour packages available in system"));
     }
 
     private LocalDate parseDate(String d) {

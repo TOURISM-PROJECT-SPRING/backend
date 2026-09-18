@@ -31,4 +31,10 @@ public class UnifiedBookingResponse {
     private String bookingDate;
     private LocalDateTime createdAt;
     private List<String> items;
+
+    /**
+     * Populated when the booking is paid via Bakong KHQR at checkout — contains the rendered
+     * QR image (Base64), MD5 hash and expiry. Null for other payment methods.
+     */
+    private BakongQrResponse bakongQr;
 }

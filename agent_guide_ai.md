@@ -88,8 +88,9 @@ Base package `api`; JSON everywhere unless noted. Standard per-resource CRUD con
   `POST /check-status`, `POST /simulate-payment?md5=` (sandbox helper)
 - `api/bookings`, `api/admin/bookings`, `api/admin/dashboard-stats`, `api/owner` — unified bookings + dashboards
   (`AdminOwnerBookingController`, `AdminDashboardController`, `OwnerDashboardController`):
-  `POST /api/bookings` (unified ROOM/TICKET/FOOD_ORDER checkout that also fires a realtime
-  notification), `GET /api/admin/bookings` (paged global feed with
+  `POST /api/bookings` (unified ROOM/TICKET/FOOD_ORDER/TOUR checkout that also fires a realtime
+  notification; when the payment method is Bakong KHQR, the response embeds a freshly generated
+  `bakongQr` object — Base64 image + MD5 — for immediate display/polling), `GET /api/admin/bookings` (paged global feed with
   `?type=&status=&search=&page=&size=` — page default 0, size default 20, max 200),
   `GET /api/admin/dashboard-stats` (real DB aggregates: totals, booking breakdown,
   non-cancelled revenue, pending orders, active promotions, 6-month revenue trend, recent
@@ -260,9 +261,10 @@ src/test/java/com/example/spring_boot_project_api/
   only — not wired through `application.properties`/`.env`). `util/KhqrGenerator` builds EMVCo-compliant
   KHQR strings + MD5 hashes; `BakongPaymentServiceImpl` renders a Base64 QR (`util/QrCodeUtil`), tracks
   QR sessions in an in-memory `ConcurrentHashMap` (nothing persisted server-side), queries Bakong's
-  `check_transaction_by_md5` only when `bakong.api.token` is set, and auto-confirms the matching
-  TICKET/ROOM/FOOD_ORDER row on success. `POST /api/v1/bakong/simulate-payment` is a sandbox-only
-  dev helper (no real bank funds).
+  `check_transaction_by_md5` only when `bakong.api.token` is set, auto-confirms the matching
+  TICKET/ROOM/FOOD_ORDER/TOUR row on success, and persists a `BAKONG_KHQR` row into the `payments`
+  table (linked to the relevant booking; `Payments` FKs to each booking type are optional).
+  `POST /api/v1/bakong/simulate-payment` is a sandbox-only dev helper (no real bank funds).
 - **Attachment system (one central table + 6 junction tables):** there is exactly one `attachments`
   table (Cloudinary metadata only) and six junction entities — `UserAttachments`, `HotelAttachments`,
   `RoomAttachments`, `TourPlaceAttachments`, `FoodAttachments`, `RestaurantAttachments`. Each

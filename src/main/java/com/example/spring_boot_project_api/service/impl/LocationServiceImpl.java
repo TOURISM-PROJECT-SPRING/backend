@@ -2,6 +2,8 @@ package com.example.spring_boot_project_api.service.impl;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,12 +26,14 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "locations", key = "#root.methodName")
     public List<LocationResponse> findAll() {
         return LocationMapper.toResponseList(locationRepository.findAll());
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "locations", key = "#root.methodName")
     public LocationResponse findById(Long id) {
         Location location = locationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Location", id));
@@ -38,6 +42,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "locations", key = "#root.methodName")
     public List<LocationResponse> findByProvince(String province) {
         return LocationMapper.toResponseList(
                 locationRepository.findByProvinceContainingIgnoreCase(province));
@@ -45,6 +50,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "locations", key = "#root.methodName")
     public List<LocationResponse> findByDistrict(String district) {
         return LocationMapper.toResponseList(
                 locationRepository.findByDistrictContainingIgnoreCase(district));
@@ -52,12 +58,14 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "locations", key = "#root.methodName")
     public List<LocationResponse> search(String keyword) {
         return LocationMapper.toResponseList(
                 locationRepository.findByProvinceContainingIgnoreCaseOrDistrictContainingIgnoreCase(keyword, keyword));
     }
 
     @Override
+    @CacheEvict(cacheNames = "locations", key = "#root.methodName")
     public LocationResponse create(LocationRequest request) {
         if (locationRepository.existsByProvinceAndDistrict(request.getProvince(), request.getDistrict())) {
             throw new IllegalArgumentException(
@@ -70,6 +78,7 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "locations", key = "#root.methodName")
     public LocationResponse update(Long id, LocationRequest request) {
         Location location = locationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Location", id));
@@ -80,6 +89,7 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "locations", key = "#root.methodName")
     public void delete(Long id) {
         if (!locationRepository.existsById(id)) {
             throw new ResourceNotFoundException("Location", id);

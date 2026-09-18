@@ -3,6 +3,8 @@ package com.example.spring_boot_project_api.service.impl;
 import java.math.BigDecimal;
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +35,7 @@ public class TourPlaceServiceImpl implements TourPlaceService {
     private final LocationRepository locationRepository;
 
     @Override
+    @CacheEvict(cacheNames = "tourPlaces", key = "#root.methodName")
     public TourPlaceResponseDTO create(TourPlaceRequestDTO request) {
         PlaceCategoties category = placeCategoryRepository.findById(request.getPlaceCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Place Category", request.getPlaceCategoryId()));
@@ -50,6 +53,7 @@ public class TourPlaceServiceImpl implements TourPlaceService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tourPlaces", key = "#root.methodName")
     public TourPlaceResponseDTO getById(Long id) {
         TourPlaces place = tourPlaceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Tourism Place", id));
@@ -58,12 +62,14 @@ public class TourPlaceServiceImpl implements TourPlaceService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tourPlaces", key = "#root.methodName")
     public List<TourPlaceResponseDTO> getAll() {
         List<TourPlaces> places = tourPlaceRepository.findAll();
         return TourPlaceMapper.toResponseList(places);
     }
 
     @Override
+    @CacheEvict(cacheNames = "tourPlaces", key = "#root.methodName")
     public TourPlaceResponseDTO update(Long id, TourPlaceRequestDTO request) {
         TourPlaces existing = tourPlaceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Tourism Place", id));
@@ -83,6 +89,7 @@ public class TourPlaceServiceImpl implements TourPlaceService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "tourPlaces", key = "#root.methodName")
     public void delete(Long id) {
         if (!tourPlaceRepository.existsById(id)) {
             throw new ResourceNotFoundException("Tourism Place", id);
@@ -92,42 +99,49 @@ public class TourPlaceServiceImpl implements TourPlaceService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tourPlaces", key = "#root.methodName")
     public List<TourPlaceResponseDTO> searchByName(String keyword) {
         return TourPlaceMapper.toResponseList(tourPlaceRepository.findByNameContainingIgnoreCase(keyword));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tourPlaces", key = "#root.methodName")
     public List<TourPlaceResponseDTO> getByDistrictId(Long districtId) {
         return TourPlaceMapper.toResponseList(tourPlaceRepository.findByDistrictId(districtId));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tourPlaces", key = "#root.methodName")
     public List<TourPlaceResponseDTO> getByCategoryId(Long categoryId) {
         return TourPlaceMapper.toResponseList(tourPlaceRepository.findByPlaceCategotyId(categoryId));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tourPlaces", key = "#root.methodName")
     public List<TourPlaceResponseDTO> getByUserId(Long userId) {
         return TourPlaceMapper.toResponseList(tourPlaceRepository.findByUserId(userId));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tourPlaces", key = "#root.methodName")
     public List<TourPlaceResponseDTO> getByStatus(String status) {
         return TourPlaceMapper.toResponseList(tourPlaceRepository.findByStaus(status));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tourPlaces", key = "#root.methodName")
     public List<TourPlaceResponseDTO> getByMinRating(BigDecimal minRating) {
         return TourPlaceMapper.toResponseList(tourPlaceRepository.findByRatingGreaterThanEqualOrderByRatingDesc(minRating));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tourPlaces", key = "#root.methodName")
     public List<TourPlaceResponseDTO> getByDistrictAndCategory(Long districtId, Long categoryId) {
         return TourPlaceMapper.toResponseList(tourPlaceRepository.findByDistrictIdAndPlaceCategotyId(districtId, categoryId));
     }
