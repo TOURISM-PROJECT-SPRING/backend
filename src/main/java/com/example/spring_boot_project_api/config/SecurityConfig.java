@@ -64,7 +64,7 @@ public class SecurityConfig {
                                 "/swagger-ui.html", "/swagger-ui/**",
                                 "/api-docs/**", "/v3/api-docs/**",
                                 "/api/payments/callback", "/api/payments/callback-form",
-                                "/api/v1/bakong/**",
+                                "/api/v1/bakong/**", "/api/v1/ai/**",
                                 "/ws-tourism/**", "/api/bookings/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/contact").permitAll()

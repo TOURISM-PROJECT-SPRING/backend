@@ -59,6 +59,8 @@ Read from `.env` (see `.env.example`) via `springboot4-dotenv` and injected with
 | `JWT_SECRET`              | JWT signing key (HS256, ≥32 bytes)         | dev-only key   |
 | `JWT_EXPIRATION_MS`       | Access-token lifetime                      | 86400000 (24h) |
 | `RESET_TOKEN_EXPIRATION_MINUTES` | Password-reset token lifetime      | 30             |
+| `GERMINI_API_KEY` / `GEMINI_API_KEY` | Google Gemini AI API key   | —              |
+| `GEMINI_MODEL`            | Gemini primary model                       | gemini-3.6-flash |
 | `SERVER_PORT`             | HTTP port                                  | 8080           |
 
 ## API surface
@@ -86,6 +88,7 @@ Base package `api`; JSON everywhere unless noted. Standard per-resource CRUD con
 - `api/place-categories` — categories (create/update consume `multipart/form-data`)
 - `api/v1/bakong` — NBC Bakong KHQR payments (see Conventions): `POST /generate-qr`,
   `POST /check-status`, `POST /simulate-payment?md5=` (sandbox helper)
+- `api/v1/ai` — Google Gemini Smart Tourism AI Assistant (`POST /chat`, `POST /itinerary`, `POST /recommendations`, `GET /status`), database-grounded RAG assistance with primary (`gemini-3.6-flash`) and fallback (`gemini-flash-latest`) support.
 - `api/bookings`, `api/admin/bookings`, `api/admin/dashboard-stats`, `api/owner` — unified bookings + dashboards
   (`AdminOwnerBookingController`, `AdminDashboardController`, `OwnerDashboardController`):
   `POST /api/bookings` (unified ROOM/TICKET/FOOD_ORDER/TOUR checkout that also fires a realtime
@@ -124,7 +127,7 @@ Base package `api`; JSON everywhere unless noted. Standard per-resource CRUD con
   | Area | Route | Allowed |
   |------|-------|---------|
   | Public | `api/auth/register`, `login`, `forgot-password`, `reset-password`; Swagger paths; `POST /api/payments/callback[:form]`; `POST /api/contact`; `POST /api/newsletter/subscribe`; all catalog GETs (hotels, rooms, foods, tickets, tour-places, attachments, reviews, promotions) | everyone |
-  | Realtime/payments | `POST /api/bookings`, `/api/v1/bakong/**`, `/ws-tourism/**` | `permitAll` |
+  | Realtime/AI/payments | `POST /api/bookings`, `/api/v1/bakong/**`, `/api/v1/ai/**`, `/ws-tourism/**` | `permitAll` |
   | Dashboard (admin) | `GET /api/admin/**` | `ADMIN` |
   | Dashboard (owner) | `/api/owner/**` | `ADMIN`, `OWNER` |
   | Admin module | `GET/POST/PUT/DELETE /api/management/**`, `/api/contact/**`, `/api/newsletter/**` | `ADMIN` |
