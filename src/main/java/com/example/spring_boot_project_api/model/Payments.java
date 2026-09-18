@@ -64,6 +64,9 @@ public class Payments {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "expired_at")
+    private LocalDateTime expiredAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_booking_id")
     @ToString.Exclude

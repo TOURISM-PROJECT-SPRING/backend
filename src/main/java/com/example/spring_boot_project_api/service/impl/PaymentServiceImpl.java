@@ -16,6 +16,8 @@ import com.example.spring_boot_project_api.dto.request.PaymentProcessRequest;
 import com.example.spring_boot_project_api.dto.response.PaymentInitiationResponse;
 import com.example.spring_boot_project_api.dto.response.PaymentProcessResponse;
 import com.example.spring_boot_project_api.dto.response.TicketBookingResponse;
+import com.example.spring_boot_project_api.enums.PaymentMethod;
+import com.example.spring_boot_project_api.enums.PaymentStatus;
 import com.example.spring_boot_project_api.exception.ResourceNotFoundException;
 import com.example.spring_boot_project_api.mapper.RoomBookingMapper;
 import com.example.spring_boot_project_api.mapper.TicketBookingMapper;
@@ -141,9 +143,9 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payments payment = new Payments();
         payment.setAmount(totalAmount);
-        payment.setPaymentMethod(request.getPaymentMethod());
+        payment.setPaymentMethod(PaymentMethod.valueOf(request.getPaymentMethod().toUpperCase()));
         payment.setTransactionId(transactionId);
-        payment.setStatus(PAYMENT_SUCCESS);
+        payment.setStatus(PaymentStatus.SUCCESS);
         payment.setPaidAt(LocalDateTime.now());
 
         if (!confirmedRoomIds.isEmpty()) {
