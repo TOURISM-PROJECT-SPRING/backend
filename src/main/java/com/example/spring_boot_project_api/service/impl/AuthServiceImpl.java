@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.spring_boot_project_api.dto.request.ChangePasswordRequest;
 import com.example.spring_boot_project_api.dto.request.ForgotPasswordRequest;
 import com.example.spring_boot_project_api.dto.request.LoginRequest;
+import com.example.spring_boot_project_api.dto.request.ProfileUpdateRequest;
 import com.example.spring_boot_project_api.dto.request.RegisterRequest;
 import com.example.spring_boot_project_api.dto.request.ResetPasswordRequest;
 import com.example.spring_boot_project_api.dto.response.AuthResponse;
@@ -83,6 +84,7 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setGender(request.getGender() != null ? request.getGender() : GenderEnum.Male);
+        user.setPhone(request.getPhone());
         user.setAddress(request.getAddress());
         user.setDateOfBirth(request.getDateOfBirth());
         Users saved = userRepository.save(user);
@@ -111,6 +113,22 @@ public class AuthServiceImpl implements AuthService {
         } catch (AuthenticationException ex) {
             throw new UnauthorizedException("Invalid username or password");
         }
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse updateProfile(ProfileUpdateRequest request) {
+        Users user = currentUser();
+        if (userRepository.existsByEmail(request.getEmail())
+                && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+            throw new IllegalArgumentException("Email is already registered");
+        }
+        user.setFullname(request.getFullname());
+        user.setEmail(request.getEmail());
+        user.setPhone(request.getPhone());
+        user.setAddress(request.getAddress());
+        Users saved = userRepository.save(user);
+        return buildAuthResponse(saved);
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.example.spring_boot_project_api.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.spring_boot_project_api.dto.request.ChangePasswordRequest;
 import com.example.spring_boot_project_api.dto.request.ForgotPasswordRequest;
 import com.example.spring_boot_project_api.dto.request.LoginRequest;
+import com.example.spring_boot_project_api.dto.request.ProfileUpdateRequest;
 import com.example.spring_boot_project_api.dto.request.RegisterRequest;
 import com.example.spring_boot_project_api.dto.request.ResetPasswordRequest;
 import com.example.spring_boot_project_api.dto.response.AuthResponse;
@@ -36,6 +38,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<AuthResponse> updateProfile(@Valid @RequestBody ProfileUpdateRequest request) {
+        return ResponseEntity.ok(authService.updateProfile(request));
     }
 
     @PostMapping("/forgot-password")

@@ -175,6 +175,8 @@ public class SecurityConfig {
                         .authenticated()
                         .requestMatchers("/api/auth/change-password", "/api/auth/logout")
                         .authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/auth/profile")
+                        .authenticated()
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/food-orders/*", "/api/ticket-bookings/*",
                                 "/api/room-bookings/*", "/api/tour-bookings/*")

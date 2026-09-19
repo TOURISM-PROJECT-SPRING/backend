@@ -17,7 +17,7 @@ public class BakongConfig {
     @Value("${bakong.api.url:https://api-bakong.nbc.gov.kh/v1}")
     private String apiUrl;
 
-    @Value("${bakong.api.token:}")
+    @Value("${BAKONG_API_TOKEN:}")
     private String apiToken;
 
     @Value("${bakong.merchant.name:SovannDomNour}")

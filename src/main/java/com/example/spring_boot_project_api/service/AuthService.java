@@ -3,6 +3,7 @@ package com.example.spring_boot_project_api.service;
 import com.example.spring_boot_project_api.dto.request.ChangePasswordRequest;
 import com.example.spring_boot_project_api.dto.request.ForgotPasswordRequest;
 import com.example.spring_boot_project_api.dto.request.LoginRequest;
+import com.example.spring_boot_project_api.dto.request.ProfileUpdateRequest;
 import com.example.spring_boot_project_api.dto.request.RegisterRequest;
 import com.example.spring_boot_project_api.dto.request.ResetPasswordRequest;
 import com.example.spring_boot_project_api.dto.response.AuthResponse;
@@ -14,6 +15,8 @@ public interface AuthService {
     AuthResponse register(RegisterRequest request);
 
     AuthResponse login(LoginRequest request);
+
+    AuthResponse updateProfile(ProfileUpdateRequest request);
 
     ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request);
 

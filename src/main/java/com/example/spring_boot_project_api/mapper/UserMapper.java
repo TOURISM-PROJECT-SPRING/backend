@@ -19,6 +19,7 @@ public class UserMapper {
                 .fullname(user.getFullname())
                 .username(user.getUsername())
                 .email(user.getEmail())
+                .phone(user.getPhone())
                 .gender(user.getGender() != null ? user.getGender().name() : null)
                 .address(user.getAddress())
                 .dateOfBirth(user.getDateOfBirth())

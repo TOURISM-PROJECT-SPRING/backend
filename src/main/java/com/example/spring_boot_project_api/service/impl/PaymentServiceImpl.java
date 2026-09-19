@@ -142,6 +142,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         Payments payment = new Payments();
+        payment.setPaymentReference("PAY-REF-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16));
         payment.setAmount(totalAmount);
         payment.setPaymentMethod(PaymentMethod.valueOf(request.getPaymentMethod().toUpperCase()));
         payment.setTransactionId(transactionId);
