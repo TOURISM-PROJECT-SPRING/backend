@@ -22,7 +22,7 @@ public class GeminiConfig {
     @Value("${gemini.model:gemini-3.6-flash}")
     private String model;
 
-    @Value("${gemini.fallback-model:gemini-flash-latest}")
+    @Value("${gemini.fallback-model:gemini-3.5-flash}")
     private String fallbackModel;
 
     @Value("${gemini.api.url:https://generativelanguage.googleapis.com/v1beta}")

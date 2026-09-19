@@ -269,25 +269,32 @@ public class DataSeeder implements CommandLineRunner {
             return;
         }
 
-        // 1. Hotel Owner
-        seedSingleOwner("Sovann Hotel Owner", "owner", "owner@smart-tourism.com", "owner123",
-                "Sovann Hotels & Resorts Group", "LIC-HOTEL-001", role.get());
-        seedSingleOwner("Sovann Hotel Owner", "owner_hotel", "owner.hotel@smart-tourism.com", "owner123",
-                "Sovann Hotels & Resorts Group", "LIC-HOTEL-001B", role.get());
+        // 1. Primary Owner - Contracted for all three verticals (HOTEL, RESTAURANT, TOUR)
+        seedSingleOwner("Sovann Multi-Business Owner", "owner", "owner@smart-tourism.com", "owner123",
+                "Sovann Multi-Business Group", "LIC-MULTI-001", role.get(),
+                java.util.Set.of("HOTEL", "RESTAURANT", "TOUR"), "ACTIVE");
 
-        // 2. Restaurant Owner
+        // 2. Hotel-only Owner
+        seedSingleOwner("Sovann Hotel Partner", "owner_hotel", "owner.hotel@smart-tourism.com", "owner123",
+                "Sovann Hotels & Resorts Group", "LIC-HOTEL-001B", role.get(),
+                java.util.Set.of("HOTEL"), "ACTIVE");
+
+        // 3. Restaurant-only Owner
         seedSingleOwner("Chann Restaurant Owner", "owner_restaurant", "owner.restaurant@smart-tourism.com", "owner123",
-                "Chann Khmer Dining & Cuisines", "LIC-REST-002", role.get());
+                "Chann Khmer Dining & Cuisines", "LIC-REST-002", role.get(),
+                java.util.Set.of("RESTAURANT"), "ACTIVE");
 
-        // 3. Tourists / Tour Owner
+        // 4. Tour-only Owner
         seedSingleOwner("Bopha Tour Owner", "owner_tour", "owner.tour@smart-tourism.com", "owner123",
-                "Bopha Angkor Tours & Adventures", "LIC-TOUR-003", role.get());
-        seedSingleOwner("Bopha Tour Owner", "owner_tourist", "owner.tourist@smart-tourism.com", "owner123",
-                "Bopha Angkor Tours & Adventures", "LIC-TOUR-003B", role.get());
+                "Bopha Angkor Tours & Adventures", "LIC-TOUR-003", role.get(),
+                java.util.Set.of("TOUR"), "ACTIVE");
+        seedSingleOwner("Bopha Tour Partner", "owner_tourist", "owner.tourist@smart-tourism.com", "owner123",
+                "Bopha Angkor Tours & Adventures", "LIC-TOUR-003B", role.get(),
+                java.util.Set.of("TOUR"), "ACTIVE");
     }
 
     private void seedSingleOwner(String fullname, String username, String email, String password,
-            String businessName, String licenseNo, Roles role) {
+            String businessName, String licenseNo, Roles role, java.util.Set<String> businessTypes, String status) {
         Optional<Users> existing = userRepository.findByUsername(username);
         Users ownerUser;
         if (existing.isPresent()) {
@@ -306,6 +313,10 @@ public class DataSeeder implements CommandLineRunner {
         profile.setBusinessLicenseNo(licenseNo);
         profile.setVerificationStatus("VERIFIED");
         profile.setVerifiedAt(LocalDate.now());
+        if (businessTypes != null) {
+            profile.setContractedBusinessTypes(new java.util.HashSet<>(businessTypes));
+        }
+        profile.setStatus(status != null ? status : "ACTIVE");
         businessOwnerProfileRepository.save(profile);
     }
 
@@ -1101,8 +1112,13 @@ public class DataSeeder implements CommandLineRunner {
     private Restaurants saveRestaurant(String name, String description, String open, String close,
                                        TourPlaces tourPlace) {
         if (restaurantRepository.existsByName(name)) {
-            return restaurantRepository.findByNameContainingIgnoreCase(name).stream()
+            Restaurants existing = restaurantRepository.findByNameContainingIgnoreCase(name).stream()
                     .filter(r -> r.getName().equalsIgnoreCase(name)).findFirst().orElseThrow();
+            if (existing.getOwner() == null && tourPlace != null && tourPlace.getUser() != null) {
+                existing.setOwner(tourPlace.getUser());
+                return restaurantRepository.save(existing);
+            }
+            return existing;
         }
         Restaurants restaurant = new Restaurants();
         restaurant.setName(name);
@@ -1110,6 +1126,9 @@ public class DataSeeder implements CommandLineRunner {
         restaurant.setOpenTime(LocalTime.parse(open));
         restaurant.setClossTime(LocalTime.parse(close));
         restaurant.setTourPlaces(tourPlace);
+        if (tourPlace != null && tourPlace.getUser() != null) {
+            restaurant.setOwner(tourPlace.getUser());
+        }
         return restaurantRepository.save(restaurant);
     }
 

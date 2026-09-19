@@ -2,7 +2,11 @@ package com.example.spring_boot_project_api.service.impl;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -16,6 +20,7 @@ import com.example.spring_boot_project_api.dto.request.UserAdminUpdateRequest;
 import com.example.spring_boot_project_api.dto.response.ApiResponse;
 import com.example.spring_boot_project_api.dto.response.MessageResponse;
 import com.example.spring_boot_project_api.dto.response.NotificationResponse;
+import com.example.spring_boot_project_api.dto.response.OwnerManagedBusinessDTO;
 import com.example.spring_boot_project_api.dto.response.OwnerResponse;
 import com.example.spring_boot_project_api.dto.response.PaymentResponse;
 import com.example.spring_boot_project_api.dto.response.PromotionResponse;
@@ -48,6 +53,7 @@ import com.example.spring_boot_project_api.repository.TourPackageRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.repository.UserRoleRepository;
 import com.example.spring_boot_project_api.service.ManagementService;
+import com.example.spring_boot_project_api.service.OwnerAccessControlService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -67,6 +73,7 @@ public class ManagementServiceImpl implements ManagementService {
     private final TourPackageRepository tourPackageRepository;
     private final TourGuideRepository tourGuideRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OwnerAccessControlService ownerAccessControlService;
 
     @Override
     public List<UserResponse> findAllUsers() {
@@ -107,6 +114,7 @@ public class ManagementServiceImpl implements ManagementService {
 
         if (request.getRoles() != null) {
             user.getUserRoles().clear();
+            boolean hasOwnerRole = false;
             for (String roleName : request.getRoles()) {
                 Roles role = roleRepository.findByName(roleName)
                         .orElseThrow(() -> new ResourceNotFoundException("Role name: " + roleName));
@@ -114,6 +122,34 @@ public class ManagementServiceImpl implements ManagementService {
                 userRole.setUser(user);
                 userRole.setRole(role);
                 user.getUserRoles().add(userRole);
+                if ("OWNER".equalsIgnoreCase(roleName)
+                        || "SUPER_OWNER".equalsIgnoreCase(roleName)
+                        || "OWNER_HOTEL".equalsIgnoreCase(roleName)
+                        || "OWNER_RESTAURANT".equalsIgnoreCase(roleName)
+                        || "OWNER_RESTUARANT".equalsIgnoreCase(roleName)
+                        || "OWNER_TOUR".equalsIgnoreCase(roleName)) {
+                    hasOwnerRole = true;
+                }
+            }
+            if (hasOwnerRole) {
+                ownerAccessControlService.ensureOwnerProfileForUser(user);
+                if (request.getAssignedBusinesses() != null) {
+                    Set<String> normalized = request.getAssignedBusinesses().stream()
+                            .filter(b -> b != null && !b.isBlank())
+                            .map(OwnerAccessControlServiceImpl::normalizeType)
+                            .filter(b -> b.equals("HOTEL") || b.equals("RESTAURANT") || b.equals("TOUR"))
+                            .collect(Collectors.toSet());
+                    businessOwnerProfileRepository.findByUsersId(user.getId()).ifPresent(profile -> {
+                        profile.setContractedBusinessTypes(normalized);
+                        businessOwnerProfileRepository.save(profile);
+                    });
+                }
+            } else {
+                ownerAccessControlService.deactivateOwnerProfileForUser(user.getId());
+                businessOwnerProfileRepository.findByUsersId(user.getId()).ifPresent(profile -> {
+                    profile.setContractedBusinessTypes(Collections.emptySet());
+                    businessOwnerProfileRepository.save(profile);
+                });
             }
         }
 
@@ -191,21 +227,34 @@ public class ManagementServiceImpl implements ManagementService {
         }
 
         if (user == null) {
-            // Pick or create fallback owner user
-            user = userRepository.findAll().stream()
-                    .filter(u -> u.getUserRoles().stream()
-                            .anyMatch(ur -> ur.getRole() != null && "OWNER".equalsIgnoreCase(ur.getRole().getName())))
-                    .findFirst()
+            String fullname = (request.getUserName() != null && !request.getUserName().isBlank())
+                    ? request.getUserName().trim()
+                    : (request.getBusinessName() != null ? request.getBusinessName().trim() + " Owner" : "Business Owner");
+            String baseUsername = "owner_" + System.currentTimeMillis();
+            String email = "owner_" + System.currentTimeMillis() + "@smart-tourism.com";
+            user = new Users();
+            user.setFullname(fullname);
+            user.setUsername(baseUsername);
+            user.setEmail(email);
+            user.setPassword(passwordEncoder.encode("owner123"));
+            user.setGender(GenderEnum.Male);
+            user.setStatus(UserEnum.Online);
+            if (request.getAddress() != null && !request.getAddress().isBlank()) {
+                user.setAddress(request.getAddress().trim());
+            }
+            user = userRepository.save(user);
+
+            Roles ownerRole = roleRepository.findByName("OWNER")
                     .orElseGet(() -> {
-                        Users fallback = new Users();
-                        fallback.setFullname("Business Owner");
-                        fallback.setUsername("owner_" + UUID.randomUUID().toString().substring(0, 8));
-                        fallback.setEmail("owner_" + System.currentTimeMillis() + "@smart-tourism.com");
-                        fallback.setPassword(passwordEncoder.encode("owner123"));
-                        fallback.setGender(GenderEnum.Male);
-                        fallback.setStatus(UserEnum.Online);
-                        return userRepository.save(fallback);
+                        Roles r = new Roles();
+                        r.setName("OWNER");
+                        return roleRepository.save(r);
                     });
+            UserRoles ur = new UserRoles();
+            ur.setUser(user);
+            ur.setRole(ownerRole);
+            userRoleRepository.save(ur);
+            user.getUserRoles().add(ur);
         }
 
         String license = request.getBusinessLicenseNo();
@@ -215,20 +264,59 @@ public class ManagementServiceImpl implements ManagementService {
             license = license + "-" + UUID.randomUUID().toString().substring(0, 4);
         }
 
-        BusinesssOwnerProfiles profile = new BusinesssOwnerProfiles();
-        profile.setBusinessName(request.getBusinessName());
+        BusinesssOwnerProfiles profile = businessOwnerProfileRepository.findByUsersId(user.getId())
+                .orElseGet(BusinesssOwnerProfiles::new);
+        profile.setBusinessName(request.getBusinessName() != null && !request.getBusinessName().isBlank()
+                ? request.getBusinessName().trim()
+                : "Business Operations");
         profile.setBusinessLicenseNo(license);
 
-        String status = (request.getVerificationStatus() != null && !request.getVerificationStatus().isBlank())
+        String vStatus = (request.getVerificationStatus() != null && !request.getVerificationStatus().isBlank())
                 ? request.getVerificationStatus().trim().toUpperCase()
                 : "PENDING";
-        profile.setVerificationStatus(status);
-        if ("VERIFIED".equalsIgnoreCase(status)) {
+        profile.setVerificationStatus(vStatus);
+        if ("VERIFIED".equalsIgnoreCase(vStatus)) {
             profile.setVerifiedAt(LocalDate.now());
         } else {
             profile.setVerifiedAt(null);
         }
+
+        String accStatus = (request.getStatus() != null && !request.getStatus().isBlank())
+                ? request.getStatus().trim().toUpperCase()
+                : "ACTIVE";
+        profile.setStatus(accStatus);
+
+        Set<String> businessTypes = new HashSet<>();
+        if (request.getBusinessTypes() != null) {
+            for (String bt : request.getBusinessTypes()) {
+                String norm = OwnerAccessControlServiceImpl.normalizeType(bt);
+                if (!norm.isEmpty()) businessTypes.add(norm);
+            }
+        } else if (request.getBusinessType() != null && !request.getBusinessType().isBlank()) {
+            String norm = OwnerAccessControlServiceImpl.normalizeType(request.getBusinessType());
+            if (!norm.isEmpty()) businessTypes.add(norm);
+        }
+        profile.setContractedBusinessTypes(businessTypes);
         profile.setUsers(user);
+
+        // Ensure user has OWNER role
+        if (user.getUserRoles() != null) {
+            boolean hasOwner = user.getUserRoles().stream()
+                    .anyMatch(ur -> ur.getRole() != null && "OWNER".equalsIgnoreCase(ur.getRole().getName()));
+            if (!hasOwner) {
+                Roles ownerRole = roleRepository.findByName("OWNER")
+                        .orElseGet(() -> {
+                            Roles r = new Roles();
+                            r.setName("OWNER");
+                            return roleRepository.save(r);
+                        });
+                UserRoles ur = new UserRoles();
+                ur.setUser(user);
+                ur.setRole(ownerRole);
+                userRoleRepository.save(ur);
+                user.getUserRoles().add(ur);
+            }
+        }
 
         return ApiResponse.<OwnerResponse>builder()
                 .message("Owner created successfully")
@@ -258,6 +346,22 @@ public class ManagementServiceImpl implements ManagementService {
             } else {
                 profile.setVerifiedAt(null);
             }
+        }
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            profile.setStatus(request.getStatus().trim().toUpperCase());
+        }
+        if (request.getBusinessTypes() != null) {
+            Set<String> set = new HashSet<>();
+            for (String bt : request.getBusinessTypes()) {
+                String norm = OwnerAccessControlServiceImpl.normalizeType(bt);
+                if (!norm.isEmpty()) set.add(norm);
+            }
+            profile.setContractedBusinessTypes(set);
+        } else if (request.getBusinessType() != null && !request.getBusinessType().isBlank()) {
+            Set<String> set = new HashSet<>();
+            String norm = OwnerAccessControlServiceImpl.normalizeType(request.getBusinessType());
+            if (!norm.isEmpty()) set.add(norm);
+            profile.setContractedBusinessTypes(set);
         }
 
         if (profile.getUsers() != null) {
@@ -307,11 +411,64 @@ public class ManagementServiceImpl implements ManagementService {
 
     @Override
     @Transactional
-    public MessageResponse deleteOwner(Long id) {
-        if (!businessOwnerProfileRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Business Owner Profile", id);
+    public OwnerResponse updateOwnerContract(Long id, List<String> businessTypes) {
+        BusinesssOwnerProfiles profile = businessOwnerProfileRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Business Owner Profile", id));
+        Set<String> set = new HashSet<>();
+        if (businessTypes != null) {
+            for (String bt : businessTypes) {
+                String norm = OwnerAccessControlServiceImpl.normalizeType(bt);
+                if (!norm.isEmpty()) set.add(norm);
+            }
         }
-        businessOwnerProfileRepository.deleteById(id);
+        profile.setContractedBusinessTypes(set);
+        return toOwnerResponse(businessOwnerProfileRepository.save(profile));
+    }
+
+    @Override
+    @Transactional
+    public OwnerResponse updateOwnerStatus(Long id, String status) {
+        BusinesssOwnerProfiles profile = businessOwnerProfileRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Business Owner Profile", id));
+        String normalized = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : "ACTIVE";
+        profile.setStatus(normalized);
+
+        if (profile.getUsers() != null) {
+            Users u = profile.getUsers();
+            if ("SUSPENDED".equalsIgnoreCase(normalized)) {
+                u.setStatus(UserEnum.Offline);
+            } else if ("ACTIVE".equalsIgnoreCase(normalized)) {
+                u.setStatus(UserEnum.Online);
+            }
+            userRepository.save(u);
+        }
+
+        return toOwnerResponse(businessOwnerProfileRepository.save(profile));
+    }
+
+    @Override
+    public List<OwnerManagedBusinessDTO> getOwnerManagedBusinesses(Long id) {
+        BusinesssOwnerProfiles profile = businessOwnerProfileRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Business Owner Profile", id));
+        if (profile.getUsers() == null) return Collections.emptyList();
+        return ownerAccessControlService.getManagedBusinesses(profile.getUsers().getId());
+    }
+
+    @Override
+    @Transactional
+    public MessageResponse deleteOwner(Long id) {
+        BusinesssOwnerProfiles profile = businessOwnerProfileRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Business Owner Profile", id));
+
+        if (profile.getUsers() != null) {
+            Users user = profile.getUsers();
+            if (user.getUserRoles() != null) {
+                user.getUserRoles().removeIf(ur -> ur.getRole() != null && "OWNER".equalsIgnoreCase(ur.getRole().getName()));
+                userRepository.save(user);
+            }
+        }
+
+        businessOwnerProfileRepository.delete(profile);
         return MessageResponse.builder().message("Business account deleted successfully").build();
     }
 
@@ -434,6 +591,23 @@ public class ManagementServiceImpl implements ManagementService {
 
     private UserResponse toUserResponse(Users u) {
         if (u == null) return null;
+
+        boolean isOwner = u.getUserRoles() != null && u.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && ur.getRole().getName() != null && ur.getRole().getName().toUpperCase().contains("OWNER"));
+        List<String> assignedBusinesses = Collections.emptyList();
+        String ownerStatus = null;
+        Optional<BusinesssOwnerProfiles> profileOpt = businessOwnerProfileRepository.findByUsersId(u.getId());
+        if (isOwner && profileOpt.isPresent()) {
+            BusinesssOwnerProfiles p = profileOpt.get();
+            if (p.getContractedBusinessTypes() != null) {
+                assignedBusinesses = p.getContractedBusinessTypes().stream()
+                        .map(String::toLowerCase)
+                        .sorted()
+                        .collect(Collectors.toList());
+            }
+            ownerStatus = p.getStatus();
+        }
+
         return UserResponse.builder()
                 .id(u.getId())
                 .fullname(u.getFullname())
@@ -447,6 +621,8 @@ public class ManagementServiceImpl implements ManagementService {
                         .map(ur -> ur.getRole() != null ? ur.getRole().getName() : null)
                         .filter(r -> r != null)
                         .collect(Collectors.toList()))
+                .assignedBusinesses(assignedBusinesses)
+                .ownerStatus(ownerStatus)
                 .createdAt(u.getCreatedAt())
                 .updatedAt(u.getUpdatedAt())
                 .build();
@@ -455,16 +631,16 @@ public class ManagementServiceImpl implements ManagementService {
     private OwnerResponse toOwnerResponse(BusinesssOwnerProfiles o) {
         if (o == null) return null;
 
-        String bName = o.getBusinessName() != null ? o.getBusinessName() : "";
-        String bLic = o.getBusinessLicenseNo() != null ? o.getBusinessLicenseNo() : "";
-        String bType = "hotel";
-        String lowerName = bName.toLowerCase();
-        String upperLic = bLic.toUpperCase();
-        if (upperLic.contains("REST") || lowerName.matches(".*(dining|cuisine|restaurant|bistro|cafe|food).*")) {
-            bType = "restaurant";
-        } else if (upperLic.contains("TOUR") || lowerName.matches(".*(tour|adventure|expedition|guide|travel).*")) {
-            bType = "tour";
-        }
+        List<String> bTypes = o.getContractedBusinessTypes() != null
+                ? o.getContractedBusinessTypes().stream().map(String::toLowerCase).sorted().collect(Collectors.toList())
+                : Collections.emptyList();
+
+        String primaryType = !bTypes.isEmpty() ? bTypes.get(0) : "hotel";
+
+        Long userId = o.getUsers() != null ? o.getUsers().getId() : null;
+        List<OwnerManagedBusinessDTO> managed = (userId != null && ownerAccessControlService != null)
+                ? ownerAccessControlService.getManagedBusinesses(userId)
+                : Collections.emptyList();
 
         String userAddress = o.getUsers() != null ? o.getUsers().getAddress() : null;
         String city = "Siem Reap";
@@ -486,8 +662,11 @@ public class ManagementServiceImpl implements ManagementService {
                 .businessLicenseNo(o.getBusinessLicenseNo())
                 .verificationStatus(o.getVerificationStatus())
                 .verifiedAt(o.getVerifiedAt())
-                .businessType(bType)
-                .userId(o.getUsers() != null ? o.getUsers().getId() : null)
+                .status(o.getStatus() != null ? o.getStatus() : "ACTIVE")
+                .businessType(primaryType)
+                .businessTypes(bTypes)
+                .managedBusinesses(managed)
+                .userId(userId)
                 .userName(o.getUsers() != null ? o.getUsers().getFullname() : null)
                 .userEmail(o.getUsers() != null ? o.getUsers().getEmail() : null)
                 .address(userAddress)

@@ -1,9 +1,7 @@
 package com.example.spring_boot_project_api.Redis;
-
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

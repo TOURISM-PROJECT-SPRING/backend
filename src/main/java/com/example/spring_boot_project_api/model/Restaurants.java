@@ -52,6 +52,12 @@ public class Restaurants {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private TourPlaces tourPlaces;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Users owner;
     
     @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
