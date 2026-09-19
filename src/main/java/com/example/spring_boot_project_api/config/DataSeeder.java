@@ -5,7 +5,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.boot.CommandLineRunner;
@@ -15,20 +17,33 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.spring_boot_project_api.enums.AttachmentFileType;
 import com.example.spring_boot_project_api.enums.GenderEnum;
+import com.example.spring_boot_project_api.enums.PaymentMethod;
+import com.example.spring_boot_project_api.enums.PaymentStatus;
 import com.example.spring_boot_project_api.model.Attachments;
 import com.example.spring_boot_project_api.model.BusinesssOwnerProfiles;
+import com.example.spring_boot_project_api.model.ContactMessages;
 import com.example.spring_boot_project_api.model.FoodCategories;
+import com.example.spring_boot_project_api.model.FoodOrderItems;
+import com.example.spring_boot_project_api.model.FoodOrders;
 import com.example.spring_boot_project_api.model.Foods;
 import com.example.spring_boot_project_api.model.HotelAttachments;
 import com.example.spring_boot_project_api.model.HotelRooms;
 import com.example.spring_boot_project_api.model.Hotels;
 import com.example.spring_boot_project_api.model.Location;
+import com.example.spring_boot_project_api.model.Notifications;
+import com.example.spring_boot_project_api.model.Payments;
 import com.example.spring_boot_project_api.model.PlaceCategoties;
 import com.example.spring_boot_project_api.model.Promotions;
 import com.example.spring_boot_project_api.model.RestaurantAttachments;
 import com.example.spring_boot_project_api.model.Restaurants;
+import com.example.spring_boot_project_api.model.Reviews;
 import com.example.spring_boot_project_api.model.Roles;
+import com.example.spring_boot_project_api.model.RoomBookings;
+import com.example.spring_boot_project_api.model.Rooms;
 import com.example.spring_boot_project_api.model.RoomTypes;
+import com.example.spring_boot_project_api.model.TicketBookings;
+import com.example.spring_boot_project_api.model.Tickets;
+import com.example.spring_boot_project_api.model.TourBookings;
 import com.example.spring_boot_project_api.model.TourGuides;
 import com.example.spring_boot_project_api.model.TourPackages;
 import com.example.spring_boot_project_api.model.TourPlaceAttachments;
@@ -37,18 +52,29 @@ import com.example.spring_boot_project_api.model.UserRoles;
 import com.example.spring_boot_project_api.model.Users;
 import com.example.spring_boot_project_api.repository.AttachmentRepository;
 import com.example.spring_boot_project_api.repository.BusinessOwnerProfileRepository;
+import com.example.spring_boot_project_api.repository.ContactMessageRepository;
 import com.example.spring_boot_project_api.repository.FoodCategoryRepository;
+import com.example.spring_boot_project_api.repository.FoodOrderItemRepository;
+import com.example.spring_boot_project_api.repository.FoodOrderRepository;
 import com.example.spring_boot_project_api.repository.FoodRepository;
 import com.example.spring_boot_project_api.repository.HotelAttachmentRepository;
 import com.example.spring_boot_project_api.repository.HotelRepository;
 import com.example.spring_boot_project_api.repository.HotelRoomRepository;
 import com.example.spring_boot_project_api.repository.LocationRepository;
+import com.example.spring_boot_project_api.repository.NotificationRepository;
+import com.example.spring_boot_project_api.repository.PaymentRepository;
 import com.example.spring_boot_project_api.repository.PlaceCategoryRepository;
 import com.example.spring_boot_project_api.repository.PromotionRepository;
 import com.example.spring_boot_project_api.repository.RestaurantAttachmentRepository;
 import com.example.spring_boot_project_api.repository.RestaurantRepository;
+import com.example.spring_boot_project_api.repository.ReviewRepository;
 import com.example.spring_boot_project_api.repository.RoleRepository;
+import com.example.spring_boot_project_api.repository.RoomBookingRepository;
+import com.example.spring_boot_project_api.repository.RoomRepository;
 import com.example.spring_boot_project_api.repository.RoomTypeRepository;
+import com.example.spring_boot_project_api.repository.TicketBookingRepository;
+import com.example.spring_boot_project_api.repository.TicketRepository;
+import com.example.spring_boot_project_api.repository.TourBookingRepository;
 import com.example.spring_boot_project_api.repository.TourGuideRepository;
 import com.example.spring_boot_project_api.repository.TourPackageRepository;
 import com.example.spring_boot_project_api.repository.TourPlaceAttachmentRepository;
@@ -84,15 +110,28 @@ public class DataSeeder implements CommandLineRunner {
     private final HotelAttachmentRepository hotelAttachmentRepository;
     private final TourPlaceAttachmentRepository tourPlaceAttachmentRepository;
     private final RestaurantAttachmentRepository restaurantAttachmentRepository;
+    private final TicketRepository ticketRepository;
+    private final TicketBookingRepository ticketBookingRepository;
+    private final RoomBookingRepository roomBookingRepository;
+    private final RoomRepository roomRepository;
+    private final TourBookingRepository tourBookingRepository;
+    private final FoodOrderRepository foodOrderRepository;
+    private final FoodOrderItemRepository foodOrderItemRepository;
+    private final ReviewRepository reviewRepository;
+    private final PaymentRepository paymentRepository;
+    private final NotificationRepository notificationRepository;
+    private final ContactMessageRepository contactMessageRepository;
 
     @Override
     @Transactional
     public void run(String... args) {
         seedRoles();
+        seedRoleMetadata();
         seedDefaultAdmin();
         seedDefaultOwner();
         seedDefaultTourist();
         seedDemoContent();
+        seedTransactionalContent();
     }
 
     // ------------------------------------------------------------------
@@ -107,6 +146,104 @@ public class DataSeeder implements CommandLineRunner {
                 role.setName(name);
                 roleRepository.save(role);
             }
+        });
+    }
+
+    private static final Map<String, List<String>> ROLE_PERMISSION_SEEDS = new LinkedHashMap<>();
+    static {
+        ROLE_PERMISSION_SEEDS.put(RoleNames.ADMIN, List.of(
+                "users.view", "users.create", "users.edit", "users.delete",
+                "hotels.view", "hotels.edit", "rooms.manage", "bookings.view",
+                "dining.view", "menu.manage", "orders.manage",
+                "places.manage", "tickets.manage", "packages.manage",
+                "payments.view", "payouts.manage", "reports.export",
+                "settings.edit", "logs.view"));
+        ROLE_PERMISSION_SEEDS.put(RoleNames.OWNER, List.of(
+                "hotels.view", "hotels.edit", "rooms.manage", "bookings.view",
+                "dining.view", "menu.manage", "orders.manage",
+                "places.manage", "tickets.manage", "packages.manage",
+                "payments.view", "payouts.manage", "reports.export"));
+        ROLE_PERMISSION_SEEDS.put(RoleNames.TOURIST, List.of(
+                "hotels.view", "dining.view", "bookings.view"));
+        ROLE_PERMISSION_SEEDS.put("SUPER_OWNER", List.of(
+                "users.view", "users.edit",
+                "hotels.view", "hotels.edit", "rooms.manage", "bookings.view",
+                "dining.view", "menu.manage", "orders.manage",
+                "places.manage", "tickets.manage", "packages.manage",
+                "payments.view", "payouts.manage", "reports.export",
+                "settings.edit", "logs.view"));
+        ROLE_PERMISSION_SEEDS.put("OWNER_TOUR", List.of(
+                "places.manage", "tickets.manage", "packages.manage",
+                "bookings.view", "payments.view", "reports.export"));
+        ROLE_PERMISSION_SEEDS.put("OWNER_HOTEL", List.of(
+                "hotels.view", "hotels.edit", "rooms.manage", "bookings.view",
+                "payments.view", "reports.export"));
+        ROLE_PERMISSION_SEEDS.put("OWNER_RESTUARANT", List.of(
+                "dining.view", "menu.manage", "orders.manage",
+                "bookings.view", "payments.view", "reports.export"));
+    }
+
+    private static final Map<String, String> ROLE_LABEL_SEEDS = new LinkedHashMap<>();
+    private static final Map<String, String> ROLE_DESCRIPTION_SEEDS = new LinkedHashMap<>();
+    private static final Map<String, String> ROLE_COLOR_SEEDS = new LinkedHashMap<>();
+    static {
+        ROLE_LABEL_SEEDS.put(RoleNames.ADMIN, "Super Administrator");
+        ROLE_DESCRIPTION_SEEDS.put(RoleNames.ADMIN,
+                "Full administrative privileges across user accounts, destinations, hotels, financial reconciliations, and global settings.");
+        ROLE_COLOR_SEEDS.put(RoleNames.ADMIN, "purple");
+
+        ROLE_LABEL_SEEDS.put(RoleNames.OWNER, "Business & Property Partner");
+        ROLE_DESCRIPTION_SEEDS.put(RoleNames.OWNER,
+                "Full management rights over registered properties, room inventories, dining menus, tour packages, and payout accounts.");
+        ROLE_COLOR_SEEDS.put(RoleNames.OWNER, "green");
+
+        ROLE_LABEL_SEEDS.put(RoleNames.TOURIST, "Customer & Tourist");
+        ROLE_DESCRIPTION_SEEDS.put(RoleNames.TOURIST,
+                "Default public traveler role for browsing attractions, making room & ticket bookings, and dining reservations.");
+        ROLE_COLOR_SEEDS.put(RoleNames.TOURIST, "emerald");
+
+        ROLE_LABEL_SEEDS.put("SUPER_OWNER", "Super Partner");
+        ROLE_DESCRIPTION_SEEDS.put("SUPER_OWNER",
+                "Top-tier partner account with extended management rights across the platform.");
+        ROLE_COLOR_SEEDS.put("SUPER_OWNER", "amber");
+
+        ROLE_LABEL_SEEDS.put("OWNER_TOUR", "Tour Operations Partner");
+        ROLE_DESCRIPTION_SEEDS.put("OWNER_TOUR",
+                "Manage tourist attractions, entrance tickets, and tour packages.");
+        ROLE_COLOR_SEEDS.put("OWNER_TOUR", "blue");
+
+        ROLE_LABEL_SEEDS.put("OWNER_HOTEL", "Hotel Partner");
+        ROLE_DESCRIPTION_SEEDS.put("OWNER_HOTEL",
+                "Manage hotel properties, room inventories, and reservations.");
+        ROLE_COLOR_SEEDS.put("OWNER_HOTEL", "green");
+
+        ROLE_LABEL_SEEDS.put("OWNER_RESTUARANT", "Restaurant Partner");
+        ROLE_DESCRIPTION_SEEDS.put("OWNER_RESTUARANT",
+                "Manage dining listings, menus, and food order fulfilment.");
+        ROLE_COLOR_SEEDS.put("OWNER_RESTUARANT", "blue");
+    }
+
+    private void seedRoleMetadata() {
+        roleRepository.findAll().forEach(role -> {
+            String name = role.getName() == null ? "" : role.getName().trim().toUpperCase();
+            boolean isSeeded = ROLE_PERMISSION_SEEDS.containsKey(name);
+            if (!isSeeded) {
+                return;
+            }
+            boolean needsUpdate = role.getLabel() == null || role.getColor() == null;
+            if (role.getPermissions() == null || role.getPermissions().isEmpty()) {
+                needsUpdate = true;
+            }
+            if (!needsUpdate) {
+                return;
+            }
+            role.setLabel(ROLE_LABEL_SEEDS.get(name));
+            role.setDescription(ROLE_DESCRIPTION_SEEDS.get(name));
+            role.setColor(ROLE_COLOR_SEEDS.get(name));
+            if (role.getPermissions() == null || role.getPermissions().isEmpty()) {
+                role.getPermissions().addAll(ROLE_PERMISSION_SEEDS.get(name));
+            }
+            roleRepository.save(role);
         });
     }
 
@@ -495,6 +632,371 @@ public class DataSeeder implements CommandLineRunner {
                 "ACTIVE", independence, fishMarket, kohRongEscape);
         savePromotion("Kep Weekend Deal", "KEP20", "PERCENT", "20",
                 "ACTIVE", kepBay, blueCrab, kohRongEscape);
+    }
+
+    // ------------------------------------------------------------------
+    // Transactional demo content (tickets, bookings, orders, reviews,
+    // payments, notifications, contact messages)
+    // ------------------------------------------------------------------
+
+    @Transactional
+    private void seedTransactionalContent() {
+        seedTickets();
+        seedRoomBookings();
+        seedTicketBookings();
+        seedTourBookings();
+        seedFoodOrders();
+        seedReviews();
+        seedPayments();
+        seedNotifications();
+        seedContactMessages();
+    }
+
+    private void seedTickets() {
+        if (ticketRepository.count() > 0) {
+            return;
+        }
+        addTicket("Angkor Wat", "Angkor Wonder Pass (1 Day)", "37",
+                "Full-day entry to the Angkor Archaeological Park with sunrise access.");
+        addTicket("Bayon Temple", "Angkor Thom Heritage Pass", "20",
+                "Entry to Bayon and the heart of the ancient Angkor Thom complex.");
+        addTicket("Ta Prohm", "Tomb Raider Jungle Pass", "22",
+                "Guided entry to the jungle temple made famous by its giant strangler figs.");
+        addTicket("Royal Palace & Silver Pagoda", "Royal Palace Entry", "10",
+                "Visit the Royal Palace, Throne Hall and the Silver Pagoda grounds.");
+        addTicket("Koh Rong", "Koh Rong Ferry & Beach Pass", "25",
+                "Round-trip ferry from Sihanoukville plus access to the island beaches.");
+        addTicket("Independence Beach", "Beach Day Pass", "5",
+                "Day pass with deck chair and beach amenities at Independence Beach.");
+        addTicket("Bokor National Park", "Bokor Heritage Drive Pass", "15",
+                "Entry for the misty mountain drive up to the French hill station.");
+        addTicket("Bamboo Train", "Bamboo Train Ride", "8",
+                "One-way ride on the rustic bamboo train through Battambang rice fields.");
+        addTicket("Kep Beach", "Kep Shore Pass", "4",
+                "Access to Kep's promenade, beaches and crab market area.");
+        addTicket("Yeak Laom Lake", "Yeak Laom Lake Trek", "6",
+                "Entry to the crater lake reserve with jungle walking trails.");
+        addTicket("Sen Monorom Waterfall", "Waterfall Entry Pass", "3",
+                "Entry to the Sen Monorom waterfall swimming pools and trails.");
+    }
+
+    private void addTicket(String placeName, String ticketName, String price, String description) {
+        TourPlaces place = tourismPlaceRepository.findByNameContainingIgnoreCase(placeName).stream()
+                .filter(p -> p.getName().equalsIgnoreCase(placeName)).findFirst().orElse(null);
+        if (place == null) {
+            return;
+        }
+        if (ticketRepository.findByTourPlacesId(place.getId()).stream()
+                .anyMatch(t -> t.getName().equalsIgnoreCase(ticketName))) {
+            return;
+        }
+        Tickets ticket = new Tickets();
+        ticket.setName(ticketName);
+        ticket.setPrice(new BigDecimal(price));
+        ticket.setDescription(description);
+        ticket.setIsAvailable(true);
+        ticket.setTourPlaces(place);
+        ticketRepository.save(ticket);
+    }
+
+    private void seedRoomBookings() {
+        if (roomBookingRepository.count() > 0) {
+            return;
+        }
+        Users tourist = userRepository.findByUsername("tourist").orElse(null);
+        Hotels sokha = hotelRepository.findByHotelName("Sokha Angkor Resort").orElse(null);
+        if (tourist == null || sokha == null) {
+            return;
+        }
+        Rooms room = roomRepository.findByHotelsId(sokha.getId()).stream().findFirst()
+                .orElseGet(() -> {
+                    HotelRooms hr = hotelRoomRepository.findByHotelsId(sokha.getId()).stream()
+                            .findFirst().orElse(null);
+                    if (hr == null) {
+                        return null;
+                    }
+                    Rooms r = new Rooms();
+                    r.setHotels(hr.getHotels());
+                    r.setRoomTypes(hr.getRoomTypes());
+                    return roomRepository.save(r);
+                });
+        if (room == null) {
+            return;
+        }
+        addRoomBooking(tourist, room, LocalDate.now().plusDays(3), LocalDate.now().plusDays(6),
+                "BAKONG_KHQR", "180", "CONFIRMED", 2);
+        addRoomBooking(tourist, room, LocalDate.now().plusDays(10), LocalDate.now().plusDays(12),
+                "CARD", "540", "PENDING", 3);
+    }
+
+    private void addRoomBooking(Users user, Rooms room, LocalDate checkIn, LocalDate checkOut,
+            String paymentMethod, String amount, String status, int guests) {
+        RoomBookings booking = new RoomBookings();
+        booking.setUsers(user);
+        booking.setRooms(room);
+        booking.setNumGuest(guests);
+        booking.setCheckIn(checkIn);
+        booking.setCheckOut(checkOut);
+        booking.setPaymentMethod(paymentMethod);
+        booking.setAmount(new BigDecimal(amount));
+        booking.setStatus(status);
+        roomBookingRepository.save(booking);
+    }
+
+    private void seedTicketBookings() {
+        if (ticketBookingRepository.count() > 0) {
+            return;
+        }
+        Users tourist = userRepository.findByUsername("tourist").orElse(null);
+        Tickets angkor = ticketRepository.findByNameContainingIgnoreCase("Angkor Wonder")
+                .stream().findFirst().orElse(null);
+        Tickets kohRong = ticketRepository.findByNameContainingIgnoreCase("Koh Rong Ferry")
+                .stream().findFirst().orElse(null);
+        if (tourist == null || angkor == null || kohRong == null) {
+            return;
+        }
+        addTicketBooking(tourist, angkor, 2, "74", LocalDate.now().plusDays(5),
+                "CONFIRMED", "CARD", "SEED-TB-0001");
+        addTicketBooking(tourist, angkor, 1, "37", LocalDate.now().plusDays(20),
+                "PENDING", "BAKONG_KHQR", "SEED-TB-0002");
+        addTicketBooking(tourist, kohRong, 3, "75", LocalDate.now().plusDays(14),
+                "CONFIRMED", "CARD", "SEED-TB-0003");
+    }
+
+    private void addTicketBooking(Users user, Tickets ticket, int qty, String totalPrice,
+            LocalDate visitDate, String status, String paymentMethod, String qrCode) {
+        TicketBookings booking = new TicketBookings();
+        booking.setUser(user);
+        booking.setTickets(ticket);
+        booking.setQuantity(qty);
+        booking.setTotalPrice(new BigDecimal(totalPrice));
+        booking.setVisiDate(visitDate);
+        booking.setStatus(status);
+        booking.setPaymentMethod(paymentMethod);
+        booking.setQrCode(qrCode);
+        ticketBookingRepository.save(booking);
+    }
+
+    private void seedTourBookings() {
+        if (tourBookingRepository.count() > 0) {
+            return;
+        }
+        Users tourist = userRepository.findByUsername("tourist").orElse(null);
+        TourPackages angkorSunrise = tourPackageRepository
+                .findByNameContainingIgnoreCase("Angkor Sunrise Tour").stream()
+                .filter(p -> p.getName().equalsIgnoreCase("Angkor Sunrise Tour")).findFirst().orElse(null);
+        TourPackages kohRong = tourPackageRepository
+                .findByNameContainingIgnoreCase("Koh Rong Island Escape").stream()
+                .filter(p -> p.getName().equalsIgnoreCase("Koh Rong Island Escape")).findFirst().orElse(null);
+        if (tourist == null || angkorSunrise == null || kohRong == null) {
+            return;
+        }
+        addTourBooking(tourist, angkorSunrise, 2, LocalDate.now().plusDays(7),
+                "90", "CONFIRMED", "CARD");
+        addTourBooking(tourist, kohRong, 4, LocalDate.now().plusDays(21),
+                "480", "PENDING", "BAKONG_KHQR");
+    }
+
+    private void addTourBooking(Users user, TourPackages pkg, int people, LocalDate tourDate,
+            String totalPrice, String status, String paymentMethod) {
+        TourBookings booking = new TourBookings();
+        booking.setUser(user);
+        booking.setTourPackages(pkg);
+        booking.setNumPeople(people);
+        booking.setTourDate(tourDate);
+        booking.setTotalPrice(new BigDecimal(totalPrice));
+        booking.setStatus(status);
+        booking.setPaymentMethod(paymentMethod);
+        tourBookingRepository.save(booking);
+    }
+
+    private void seedFoodOrders() {
+        if (foodOrderRepository.count() > 0) {
+            return;
+        }
+        Users tourist = userRepository.findByUsername("tourist").orElse(null);
+        Restaurants chanreyTree = restaurantRepository.findByNameContainingIgnoreCase("Chanrey Tree")
+                .stream().filter(r -> r.getName().equalsIgnoreCase("Chanrey Tree")).findFirst().orElse(null);
+        Restaurants fishMarket = restaurantRepository.findByNameContainingIgnoreCase("Sihanoukville Fish Market")
+                .stream().filter(r -> r.getName().equalsIgnoreCase("Sihanoukville Fish Market")).findFirst().orElse(null);
+        if (tourist == null || chanreyTree == null || fishMarket == null) {
+            return;
+        }
+        addFoodOrder(tourist, chanreyTree, LocalDateTime.now().plusHours(3),
+                "PENDING", "TC-0001");
+        addFoodOrder(tourist, chanreyTree, LocalDateTime.now().minusDays(2).plusHours(4),
+                "COMPLETED", "TC-0002");
+        addFoodOrder(tourist, fishMarket, LocalDateTime.now().plusDays(1).plusHours(2),
+                "CONFIRMED", "FM-0001");
+    }
+
+    private void addFoodOrder(Users user, Restaurants restaurant, LocalDateTime pickupTime,
+            String status, String prefix) {
+        List<Foods> menu = foodRepository.findByRestaurantsIdAndIsAvailableTrue(restaurant.getId())
+                .stream().limit(3).collect(java.util.stream.Collectors.toList());
+        if (menu.size() < 2) {
+            return;
+        }
+        FoodOrders order = new FoodOrders();
+        order.setUser(user);
+        order.setRestuarants(restaurant);
+        order.setPickupTime(pickupTime);
+        order.setStatus(status);
+        BigDecimal total = BigDecimal.ZERO;
+        int itemNo = 1;
+        for (Foods food : menu) {
+            int qty = itemNo == 1 ? 2 : 1;
+            BigDecimal subTotal = food.getPrice().multiply(BigDecimal.valueOf(qty));
+            total = total.add(subTotal);
+            FoodOrderItems item = new FoodOrderItems();
+            item.setFoodOrders(order);
+            item.setFoods(food);
+            item.setQuantity(qty);
+            item.setUnitPrice(food.getPrice());
+            item.setSubTotal(subTotal);
+            order.getFoodOrderItems().add(item);
+            itemNo++;
+        }
+        order.setTotalPrice(total);
+        foodOrderRepository.save(order);
+    }
+
+    private void seedReviews() {
+        if (reviewRepository.count() > 0) {
+            return;
+        }
+        Users tourist = userRepository.findByUsername("tourist").orElse(null);
+        Users customer = userRepository.findByUsername("customer").orElse(null);
+        if (tourist == null || customer == null) {
+            return;
+        }
+        addReview(tourist, 5, "Breathtaking at sunrise, the five towers are unforgettable. "
+                + "Skip the crowds and hire a guide.", "Angkor Wat", "PLACE");
+        addReview(tourist, 4, "The jungle atmosphere makes this one the most unique temple "
+                + "in the whole park.", "Ta Prohm", "PLACE");
+        addReview(customer, 5, "Stayed for a weekend — impeccable service, great pool and "
+                + "close to the temples.", "Sokha Angkor Resort", "HOTEL");
+        addReview(customer, 4, "The fish amok was the best we had in Siem Reap. Lovely "
+                + "courtyard seating.", "Chanrey Tree", "RESTAURANT");
+        addReview(tourist, 5, "Perfect day trip, our guide knew every history fact and "
+                + "the timing was spot on.", "Angkor Sunrise Tour", "PACKAGE");
+    }
+
+    private void addReview(Users user, int rating, String comment, String targetName,
+            String targetType) {
+        Reviews review = new Reviews();
+        review.setUser(user);
+        review.setRating(rating);
+        review.setComment(comment);
+        if ("PLACE".equals(targetType)) {
+            review.setTourPlace(tourismPlaceRepository.findByNameContainingIgnoreCase(targetName)
+                    .stream().filter(p -> p.getName().equalsIgnoreCase(targetName)).findFirst().orElse(null));
+        } else if ("HOTEL".equals(targetType)) {
+            review.setHotel(hotelRepository.findByHotelName(targetName).orElse(null));
+        } else if ("RESTAURANT".equals(targetType)) {
+            review.setRestaurant(restaurantRepository.findByNameContainingIgnoreCase(targetName)
+                    .stream().filter(r -> r.getName().equalsIgnoreCase(targetName)).findFirst().orElse(null));
+        } else if ("PACKAGE".equals(targetType)) {
+            review.setTourPackage(tourPackageRepository.findByNameContainingIgnoreCase(targetName)
+                    .stream().filter(p -> p.getName().equalsIgnoreCase(targetName)).findFirst().orElse(null));
+        }
+        reviewRepository.save(review);
+    }
+
+    private void seedPayments() {
+        if (paymentRepository.count() > 0) {
+            return;
+        }
+        RoomBookings rb = roomBookingRepository.findAll().stream().findFirst().orElse(null);
+        TicketBookings tb = ticketBookingRepository.findAll().stream().findFirst().orElse(null);
+        FoodOrders fo = foodOrderRepository.findAll().stream().findFirst().orElse(null);
+        TourBookings tob = tourBookingRepository.findAll().stream().findFirst().orElse(null);
+        if (rb == null || tb == null || fo == null || tob == null) {
+            return;
+        }
+        savePayment("PAY-SEED-RB-001", rb.getAmount(), PaymentMethod.CARD, "TX-SEED-RB-001",
+                rb, tb, fo, tob);
+        savePayment("PAY-SEED-TB-001", tb.getTotalPrice(), PaymentMethod.BAKONG_KHQR, "TX-SEED-TB-001",
+                rb, tb, fo, tob);
+        savePayment("PAY-SEED-FO-001", fo.getTotalPrice(), PaymentMethod.CASH, "TX-SEED-FO-001",
+                rb, tb, fo, tob);
+        savePayment("PAY-SEED-TO-001", tob.getTotalPrice(), PaymentMethod.CARD, "TX-SEED-TO-001",
+                rb, tb, fo, tob);
+    }
+
+    private void savePayment(String reference, BigDecimal amount, PaymentMethod method,
+            String transactionId, RoomBookings rb, TicketBookings tb,
+            FoodOrders fo, TourBookings tob) {
+        Payments payment = new Payments();
+        payment.setPaymentReference(reference);
+        payment.setAmount(amount);
+        payment.setPaymentMethod(method);
+        payment.setTransactionId(transactionId);
+        payment.setQrMd5(java.util.UUID.randomUUID().toString().replace("-", ""));
+        payment.setStatus(PaymentStatus.SUCCESS);
+        payment.setPaidAt(LocalDateTime.now().minusDays(1));
+        payment.setRoomBookings(rb);
+        payment.setTicketBookings(tb);
+        payment.setFoodOrders(fo);
+        payment.setTourBookings(tob);
+        paymentRepository.save(payment);
+    }
+
+    private void seedNotifications() {
+        if (notificationRepository.count() > 0) {
+            return;
+        }
+        Users admin = userRepository.findByUsername("admin").orElse(null);
+        Users tourist = userRepository.findByUsername("tourist").orElse(null);
+        if (admin == null || tourist == null) {
+            return;
+        }
+        saveNotification(admin, "New booking received", "A visitor booked the Angkor Sunrise Tour for next week.",
+                "BOOKING_CONFIRMED", false);
+        saveNotification(admin, "Review submitted", "A 5-star review was just published for Angkor Wat.",
+                "REVIEW", false);
+        saveNotification(admin, "New promotion ready", "The 'Kep Weekend Deal' promotion is now live on the site.",
+                "PROMOTION", true);
+        saveNotification(tourist, "Welcome!",
+                "Thanks for joining Smart Tourism Cambodia. Explore tours, stays and dining.",
+                "SYSTEM", false);
+        saveNotification(tourist, "Booking confirmed",
+                "Your Angkor Wonder Pass booking has been confirmed. Enjoy your visit!",
+                "BOOKING_CONFIRMED", false);
+    }
+
+    private void saveNotification(Users user, String title, String message, String type,
+            boolean isRead) {
+        Notifications notification = new Notifications();
+        notification.setUser(user);
+        notification.setTitle(title);
+        notification.setMessage(message);
+        notification.setType(type);
+        notification.setIsRead(isRead);
+        notificationRepository.save(notification);
+    }
+
+    private void seedContactMessages() {
+        if (contactMessageRepository.count() > 0) {
+            return;
+        }
+        saveContactMessage("Sok Dara", "sok.dara@example.com", "Group tour for 12 people",
+                "Hello, we would like to arrange a private Angkor Wat sunrise tour for a group "
+                        + "of 12 next month. Could you share availability and pricing?");
+        saveContactMessage("Maria Chen", "maria.chen@example.com", "Hotel near the airport",
+                "Looking for a family-friendly hotel with airport shuttle service in Phnom Penh.");
+        saveContactMessage("John Smith", "john.smith@example.com", "Food recommendation",
+                "We are visiting Kep next weekend — any recommended places for crab dinner?");
+    }
+
+    private void saveContactMessage(String name, String email, String subject, String message) {
+        ContactMessages contact = new ContactMessages();
+        contact.setName(name);
+        contact.setEmail(email);
+        contact.setSubject(subject);
+        contact.setMessage(message);
+        contact.setIsRead(false);
+        contactMessageRepository.save(contact);
     }
 
     // ------------------------------------------------------------------

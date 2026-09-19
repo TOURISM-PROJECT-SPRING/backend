@@ -1,6 +1,7 @@
 package com.example.spring_boot_project_api.service.impl;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.spring_boot_project_api.dto.request.OwnerAdminRequest;
+import com.example.spring_boot_project_api.dto.request.RoleCreateRequest;
 import com.example.spring_boot_project_api.dto.request.UserAdminUpdateRequest;
 import com.example.spring_boot_project_api.dto.response.ApiResponse;
 import com.example.spring_boot_project_api.dto.response.MessageResponse;
@@ -322,11 +324,11 @@ public class ManagementServiceImpl implements ManagementService {
 
     @Override
     @Transactional
-    public ApiResponse<RoleResponse> createRole(String name) {
-        if (name == null || name.isBlank()) {
+    public ApiResponse<RoleResponse> createRole(RoleCreateRequest request) {
+        if (request.getName() == null || request.getName().isBlank()) {
             throw new IllegalArgumentException("Role name cannot be empty");
         }
-        String cleanName = name.trim().toUpperCase();
+        String cleanName = request.getName().trim().toUpperCase();
         return roleRepository.findByName(cleanName)
                 .map(r -> ApiResponse.<RoleResponse>builder()
                         .message("Role created successfully")
@@ -335,6 +337,7 @@ public class ManagementServiceImpl implements ManagementService {
                 .orElseGet(() -> {
                     Roles r = new Roles();
                     r.setName(cleanName);
+                    applyRoleFields(r, request);
                     return ApiResponse.<RoleResponse>builder()
                             .message("Role created successfully")
                             .data(toRoleResponse(roleRepository.save(r)))
@@ -344,13 +347,35 @@ public class ManagementServiceImpl implements ManagementService {
 
     @Override
     @Transactional
-    public RoleResponse updateRole(Long id, String name) {
+    public RoleResponse updateRole(Long id, RoleCreateRequest request) {
         Roles role = roleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Role", id));
-        if (name != null && !name.isBlank()) {
-            role.setName(name.trim().toUpperCase());
+        if (request.getName() != null && !request.getName().isBlank()) {
+            role.setName(request.getName().trim().toUpperCase());
         }
+        applyRoleFields(role, request);
         return toRoleResponse(roleRepository.save(role));
+    }
+
+    private void applyRoleFields(Roles role, RoleCreateRequest request) {
+        if (request.getLabel() != null) {
+            role.setLabel(request.getLabel().trim());
+        }
+        if (request.getDescription() != null) {
+            role.setDescription(request.getDescription().trim());
+        }
+        if (request.getColor() != null) {
+            role.setColor(request.getColor().trim().toLowerCase());
+        }
+        if (request.getPermissions() != null) {
+            List<String> clean = request.getPermissions().stream()
+                    .filter(p -> p != null && !p.isBlank())
+                    .map(String::trim)
+                    .distinct()
+                    .collect(Collectors.toList());
+            role.getPermissions().clear();
+            role.getPermissions().addAll(clean);
+        }
     }
 
     @Override
@@ -478,6 +503,10 @@ public class ManagementServiceImpl implements ManagementService {
         return RoleResponse.builder()
                 .id(r.getId())
                 .name(r.getName())
+                .label(r.getLabel())
+                .description(r.getDescription())
+                .color(r.getColor())
+                .permissions(r.getPermissions() != null ? List.copyOf(r.getPermissions()) : new ArrayList<>())
                 .userCount((long) (r.getUserRoles() != null ? r.getUserRoles().size() : 0))
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())

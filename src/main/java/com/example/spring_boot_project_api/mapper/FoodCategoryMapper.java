@@ -1,6 +1,7 @@
 package com.example.spring_boot_project_api.mapper;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.example.spring_boot_project_api.dto.request.FoodCategoryRequest;
 import com.example.spring_boot_project_api.dto.response.FoodCategoryResponse;
@@ -22,7 +23,7 @@ public class FoodCategoryMapper {
     public static List<FoodCategoryResponse> toResponseList(List<FoodCategories> entities) {
         return entities.stream()
                 .map(FoodCategoryMapper::toResponse)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     public static FoodCategories toEntity(FoodCategoryRequest request) {

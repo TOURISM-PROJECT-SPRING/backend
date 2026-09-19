@@ -1,6 +1,7 @@
 package com.example.spring_boot_project_api.mapper;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.example.spring_boot_project_api.dto.request.PlaceCategoryRequest;
 import com.example.spring_boot_project_api.dto.response.PlaceCategoryResponse;
@@ -23,7 +24,7 @@ public class PlaceCategoryMapper {
     public static List<PlaceCategoryResponse> toResponseList(List<PlaceCategoties> entities) {
         return entities.stream()
                 .map(PlaceCategoryMapper::toResponse)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     public static PlaceCategoties toEntity(PlaceCategoryRequest request) {

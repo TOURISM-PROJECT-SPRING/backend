@@ -3,6 +3,7 @@ package com.example.spring_boot_project_api.service;
 import java.util.List;
 
 import com.example.spring_boot_project_api.dto.request.OwnerAdminRequest;
+import com.example.spring_boot_project_api.dto.request.RoleCreateRequest;
 import com.example.spring_boot_project_api.dto.request.UserAdminUpdateRequest;
 import com.example.spring_boot_project_api.dto.response.ApiResponse;
 import com.example.spring_boot_project_api.dto.response.MessageResponse;
@@ -40,9 +41,9 @@ public interface ManagementService {
 
     List<RoleResponse> findAllRoles();
 
-    ApiResponse<RoleResponse> createRole(String name);
+    ApiResponse<RoleResponse> createRole(RoleCreateRequest request);
 
-    RoleResponse updateRole(Long id, String name);
+    RoleResponse updateRole(Long id, RoleCreateRequest request);
 
     MessageResponse deleteRole(Long id);
 

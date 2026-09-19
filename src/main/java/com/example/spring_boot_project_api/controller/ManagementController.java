@@ -108,14 +108,14 @@ public class ManagementController {
 
     @PostMapping("/roles")
     public ResponseEntity<ApiResponse<RoleResponse>> createRole(@RequestBody @Valid RoleCreateRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(managementService.createRole(request.getName()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(managementService.createRole(request));
     }
 
     @PutMapping("/roles/{id}")
     public ResponseEntity<RoleResponse> updateRole(
             @PathVariable Long id,
             @RequestBody @Valid RoleCreateRequest request) {
-        return ResponseEntity.ok(managementService.updateRole(id, request.getName()));
+        return ResponseEntity.ok(managementService.updateRole(id, request));
     }
 
     @DeleteMapping("/roles/{id}")
