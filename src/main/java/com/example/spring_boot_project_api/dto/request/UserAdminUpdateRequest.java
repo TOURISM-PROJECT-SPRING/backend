@@ -42,4 +42,6 @@ public class UserAdminUpdateRequest {
     private UserEnum status;
 
     private List<String> roles;
+
+    private List<String> assignedBusinesses;
 }

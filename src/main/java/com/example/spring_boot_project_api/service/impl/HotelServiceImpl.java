@@ -18,6 +18,7 @@ import com.example.spring_boot_project_api.repository.HotelRepository;
 import com.example.spring_boot_project_api.repository.LocationRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.service.HotelService;
+import com.example.spring_boot_project_api.service.OwnerAccessControlService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +30,7 @@ public class HotelServiceImpl implements HotelService {
     private final HotelRepository hotelRepository;
     private final LocationRepository locationRepository;
     private final UserRepository userRepository;
+    private final OwnerAccessControlService ownerAccessControlService;
 
     @Override
     @Transactional(readOnly = true)
@@ -83,6 +85,8 @@ public class HotelServiceImpl implements HotelService {
         Users owner = userRepository.findById(request.getOwnerId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getOwnerId()));
 
+        ownerAccessControlService.requireBusinessAccess(owner.getId(), "HOTEL");
+
         if (hotelRepository.existsByHotelName(request.getHotelName())) {
             throw new IllegalArgumentException(
                     "Hotel already exists with name: " + request.getHotelName());
@@ -104,6 +108,8 @@ public class HotelServiceImpl implements HotelService {
 
         Users owner = userRepository.findById(request.getOwnerId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getOwnerId()));
+
+        ownerAccessControlService.requireBusinessAccess(owner.getId(), "HOTEL");
 
         HotelMapper.toEntity(hotel, request, location, owner);
         Hotels updated = hotelRepository.save(hotel);

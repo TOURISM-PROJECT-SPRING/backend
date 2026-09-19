@@ -14,6 +14,20 @@ public class UserMapper {
 
     public static UserResponse toResponse(Users user) {
         if (user == null) return null;
+
+        List<String> assignedBusinesses = Collections.emptyList();
+        String ownerStatus = null;
+        if (user.getBusinesssOwnerProfiles() != null && !user.getBusinesssOwnerProfiles().isEmpty()) {
+            var profile = user.getBusinesssOwnerProfiles().get(0);
+            if (profile.getContractedBusinessTypes() != null) {
+                assignedBusinesses = profile.getContractedBusinessTypes().stream()
+                        .map(String::toLowerCase)
+                        .sorted()
+                        .collect(Collectors.toList());
+            }
+            ownerStatus = profile.getStatus();
+        }
+
         return UserResponse.builder()
                 .id(user.getId())
                 .fullname(user.getFullname())
@@ -28,6 +42,8 @@ public class UserMapper {
                                 .map(ur -> ur.getRole() != null ? ur.getRole().getName() : null)
                                 .filter(name -> name != null)
                                 .collect(Collectors.toList()))
+                .assignedBusinesses(assignedBusinesses)
+                .ownerStatus(ownerStatus)
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

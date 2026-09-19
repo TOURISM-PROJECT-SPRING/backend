@@ -2,8 +2,12 @@ package com.example.spring_boot_project_api.model;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -39,6 +43,14 @@ public class BusinesssOwnerProfiles {
     @Column(name = "verified_at")
     private LocalDate verifiedAt;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "owner_contracted_businesses", joinColumns = @JoinColumn(name = "owner_profile_id"))
+    @Column(name = "business_type", length = 50)
+    private Set<String> contractedBusinessTypes = new HashSet<>();
+
+    @Column(name = "status", length = 30)
+    private String status = "ACTIVE";
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     @ToString.Exclude
@@ -51,14 +63,34 @@ public class BusinesssOwnerProfiles {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    public boolean hasBusinessAccess(String type) {
+        if (type == null) return false;
+        String normalized = type.trim().toUpperCase();
+        if ("TOURIST".equals(normalized)) normalized = "TOUR";
+        return contractedBusinessTypes.contains(normalized);
+    }
+
+    public boolean isActive() {
+        return "ACTIVE".equalsIgnoreCase(this.status);
+    }
+
     @PrePersist
     void onCreate() {
+        if (this.status == null || this.status.isBlank()) {
+            this.status = "ACTIVE";
+        }
+        if (this.contractedBusinessTypes == null) {
+            this.contractedBusinessTypes = new HashSet<>();
+        }
         createdAt = LocalDateTime.now();
         updatedAt = createdAt;
     }
 
     @PreUpdate
     void onUpdate() {
+        if (this.status == null || this.status.isBlank()) {
+            this.status = "ACTIVE";
+        }
         updatedAt = LocalDateTime.now();
     }
 }

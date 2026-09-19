@@ -8,6 +8,7 @@ import com.example.spring_boot_project_api.dto.request.UserAdminUpdateRequest;
 import com.example.spring_boot_project_api.dto.response.ApiResponse;
 import com.example.spring_boot_project_api.dto.response.MessageResponse;
 import com.example.spring_boot_project_api.dto.response.NotificationResponse;
+import com.example.spring_boot_project_api.dto.response.OwnerManagedBusinessDTO;
 import com.example.spring_boot_project_api.dto.response.OwnerResponse;
 import com.example.spring_boot_project_api.dto.response.PaymentResponse;
 import com.example.spring_boot_project_api.dto.response.PromotionResponse;
@@ -36,6 +37,12 @@ public interface ManagementService {
     OwnerResponse updateOwner(Long id, OwnerAdminRequest request);
 
     OwnerResponse verifyOwner(Long id, String status);
+
+    OwnerResponse updateOwnerContract(Long id, List<String> businessTypes);
+
+    OwnerResponse updateOwnerStatus(Long id, String status);
+
+    List<OwnerManagedBusinessDTO> getOwnerManagedBusinesses(Long id);
 
     MessageResponse deleteOwner(Long id);
 

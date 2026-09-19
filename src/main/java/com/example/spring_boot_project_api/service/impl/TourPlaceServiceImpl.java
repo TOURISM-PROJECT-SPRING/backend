@@ -20,6 +20,7 @@ import com.example.spring_boot_project_api.repository.LocationRepository;
 import com.example.spring_boot_project_api.repository.PlaceCategoryRepository;
 import com.example.spring_boot_project_api.repository.TourismPlaceRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
+import com.example.spring_boot_project_api.service.OwnerAccessControlService;
 import com.example.spring_boot_project_api.service.TourPlaceService;
 
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class TourPlaceServiceImpl implements TourPlaceService {
     private final PlaceCategoryRepository placeCategoryRepository;
     private final UserRepository userRepository;
     private final LocationRepository locationRepository;
+    private final OwnerAccessControlService ownerAccessControlService;
 
     @Override
     @CacheEvict(cacheNames = "tourPlaces", key = "#root.methodName")
@@ -42,6 +44,8 @@ public class TourPlaceServiceImpl implements TourPlaceService {
 
         Users user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getUserId()));
+
+        ownerAccessControlService.requireBusinessAccess(user.getId(), "TOUR");
 
         Location district = locationRepository.findById(request.getDistrictId())
                 .orElseThrow(() -> new ResourceNotFoundException("Location", request.getDistrictId()));
@@ -79,6 +83,8 @@ public class TourPlaceServiceImpl implements TourPlaceService {
 
         Users user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getUserId()));
+
+        ownerAccessControlService.requireBusinessAccess(user.getId(), "TOUR");
 
         Location district = locationRepository.findById(request.getDistrictId())
                 .orElseThrow(() -> new ResourceNotFoundException("Location", request.getDistrictId()));

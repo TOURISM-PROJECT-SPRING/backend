@@ -24,6 +24,8 @@ public class UserResponse {
     private LocalDate dateOfBirth;
     private String status;
     private List<String> roles;
+    private List<String> assignedBusinesses;
+    private String ownerStatus;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

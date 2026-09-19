@@ -5,13 +5,16 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +28,6 @@ import com.example.spring_boot_project_api.model.Foods;
 import com.example.spring_boot_project_api.model.Hotels;
 import com.example.spring_boot_project_api.model.Restaurants;
 import com.example.spring_boot_project_api.model.RoomBookings;
-// import com.example.spring_boot_project_api.model.Rooms;
 import com.example.spring_boot_project_api.model.TicketBookings;
 import com.example.spring_boot_project_api.model.TourPlaces;
 import com.example.spring_boot_project_api.model.Users;
@@ -39,6 +41,7 @@ import com.example.spring_boot_project_api.repository.TicketBookingRepository;
 import com.example.spring_boot_project_api.repository.TourismPlaceRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.service.BookingNotificationService;
+import com.example.spring_boot_project_api.service.OwnerAccessControlService;
 import com.example.spring_boot_project_api.service.OwnerDashboardService;
 
 import lombok.RequiredArgsConstructor;
@@ -59,11 +62,32 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     private final FoodRepository foodRepository;
     private final UserRepository userRepository;
     private final BookingNotificationService notificationService;
+    private final OwnerAccessControlService ownerAccessControlService;
 
     @Override
     @Transactional(readOnly = true)
     public OwnerDashboardStatsDTO getDashboardStats(Long ownerId) {
-        Long targetOwnerId = (ownerId != null) ? ownerId : 1L;
+        if (ownerId == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Owner authentication required");
+        }
+        Long targetOwnerId = ownerId;
+
+        if (!ownerAccessControlService.isOwnerActive(targetOwnerId)) {
+            String businessName = userRepository.findById(targetOwnerId)
+                    .map(Users::getFullname)
+                    .orElse("Business Operations");
+            return OwnerDashboardStatsDTO.builder()
+                    .ownerId(targetOwnerId)
+                    .businessName(businessName)
+                    .totalBookings(0L)
+                    .activeServices(0L)
+                    .totalRevenue(BigDecimal.ZERO)
+                    .pendingOrders(0L)
+                    .revenueTrend(Collections.emptyList())
+                    .recentBookings(Collections.emptyList())
+                    .build();
+        }
+
         List<UnifiedBookingResponse> bookings = getOwnerBookings(targetOwnerId, null);
 
         long totalBookings = bookings.size();
@@ -132,22 +156,46 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     @Override
     @Transactional(readOnly = true)
     public List<UnifiedBookingResponse> getOwnerBookings(Long ownerId, String status) {
-        Long targetOwnerId = (ownerId != null) ? ownerId : 1L;
+        if (ownerId == null) {
+            return Collections.emptyList();
+        }
+        Long targetOwnerId = ownerId;
+
+        if (!ownerAccessControlService.isOwnerActive(targetOwnerId)) {
+            return Collections.emptyList();
+        }
+
+        Set<String> contracted = ownerAccessControlService.getContractedBusinesses(targetOwnerId);
         List<UnifiedBookingResponse> list = new ArrayList<>();
 
         // 1. Hotel room bookings
-        roomBookingRepository.findAll().stream()
-                .filter(rb -> rb.getRooms() != null
-                        && rb.getRooms().getHotels() != null
-                        && rb.getRooms().getHotels().getOwner() != null
-                        && rb.getRooms().getHotels().getOwner().getId().equals(targetOwnerId))
-                .forEach(rb -> list.add(mapRoomBooking(rb)));
+        if (contracted.contains("HOTEL")) {
+            roomBookingRepository.findAll().stream()
+                    .filter(rb -> rb.getRooms() != null
+                            && rb.getRooms().getHotels() != null
+                            && rb.getRooms().getHotels().getOwner() != null
+                            && rb.getRooms().getHotels().getOwner().getId().equals(targetOwnerId))
+                    .forEach(rb -> list.add(mapRoomBooking(rb)));
+        }
 
         // 2. Restaurant food orders
-        foodOrderRepository.findAll().stream()
-                .filter(fo -> fo.getRestuarants() != null
-                        && fo.getRestuarants().getId().equals(targetOwnerId))
-                .forEach(fo -> list.add(mapFoodOrder(fo)));
+        if (contracted.contains("RESTAURANT")) {
+            foodOrderRepository.findAll().stream()
+                    .filter(fo -> fo.getRestuarants() != null
+                            && ((fo.getRestuarants().getOwner() != null && fo.getRestuarants().getOwner().getId().equals(targetOwnerId))
+                                    || fo.getRestuarants().getId().equals(targetOwnerId)))
+                    .forEach(fo -> list.add(mapFoodOrder(fo)));
+        }
+
+        // 3. Ticket bookings (TOUR)
+        if (contracted.contains("TOUR")) {
+            ticketBookingRepository.findAll().stream()
+                    .filter(tb -> tb.getTickets() != null
+                            && tb.getTickets().getTourPlaces() != null
+                            && tb.getTickets().getTourPlaces().getUser() != null
+                            && tb.getTickets().getTourPlaces().getUser().getId().equals(targetOwnerId))
+                    .forEach(tb -> list.add(mapTicketBooking(tb)));
+        }
 
         // Apply status filter if specified
         List<UnifiedBookingResponse> filtered = list;
@@ -203,64 +251,78 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     @Override
     @Transactional(readOnly = true)
     public List<OwnerOfferingDTO> getOwnerOfferings(Long ownerId) {
-        Long targetOwnerId = (ownerId != null) ? ownerId : 1L;
+        if (ownerId == null) {
+            return Collections.emptyList();
+        }
+        Long targetOwnerId = ownerId;
+
+        if (!ownerAccessControlService.isOwnerActive(targetOwnerId)) {
+            return Collections.emptyList();
+        }
+
+        Set<String> contracted = ownerAccessControlService.getContractedBusinesses(targetOwnerId);
         List<OwnerOfferingDTO> list = new ArrayList<>();
 
         // 1. Hotels & Rooms
-        List<Hotels> hotels = hotelRepository.findByOwnerId(targetOwnerId);
-        if (hotels.isEmpty()) {
-            hotels = hotelRepository.findAll().stream().limit(3).toList();
-        }
-        for (Hotels h : hotels) {
-            list.add(OwnerOfferingDTO.builder()
-                    .id(h.getId())
-                    .name(h.getHotelName())
-                    .offeringType("HOTEL")
-                    .category("Accommodation")
-                    .price(new BigDecimal("120"))
-                    .description(h.getPhoneContact() != null ? "Contact: " + h.getPhoneContact() : "Luxury Hotel Stay")
-                    .imageUrl(null)
-                    .isAvailable(true)
-                    .referenceId(h.getId())
-                    .status("Active")
-                    .build());
+        if (contracted.contains("HOTEL")) {
+            List<Hotels> hotels = hotelRepository.findByOwnerId(targetOwnerId);
+            for (Hotels h : hotels) {
+                list.add(OwnerOfferingDTO.builder()
+                        .id(h.getId())
+                        .name(h.getHotelName())
+                        .offeringType("HOTEL")
+                        .category("Accommodation")
+                        .price(new BigDecimal("120"))
+                        .description(h.getPhoneContact() != null ? "Contact: " + h.getPhoneContact() : "Luxury Hotel Stay")
+                        .imageUrl(null)
+                        .isAvailable(true)
+                        .referenceId(h.getId())
+                        .status("Active")
+                        .build());
+            }
         }
 
         // 2. Tour Places
-        List<TourPlaces> tours = tourismPlaceRepository.findByUserId(targetOwnerId);
-        if (tours.isEmpty()) {
-            tours = tourismPlaceRepository.findAll().stream().limit(3).toList();
-        }
-        for (TourPlaces t : tours) {
-            list.add(OwnerOfferingDTO.builder()
-                    .id(t.getId())
-                    .name(t.getName())
-                    .offeringType("TOUR")
-                    .category("Experience")
-                    .price(new BigDecimal("45"))
-                    .description(t.getDescription())
-                    .imageUrl(null)
-                    .isAvailable(true)
-                    .referenceId(t.getId())
-                    .status(t.getStaus() != null ? t.getStaus() : "Active")
-                    .build());
+        if (contracted.contains("TOUR")) {
+            List<TourPlaces> tours = tourismPlaceRepository.findByUserId(targetOwnerId);
+            for (TourPlaces t : tours) {
+                list.add(OwnerOfferingDTO.builder()
+                        .id(t.getId())
+                        .name(t.getName())
+                        .offeringType("TOUR")
+                        .category("Experience")
+                        .price(new BigDecimal("45"))
+                        .description(t.getDescription())
+                        .imageUrl(null)
+                        .isAvailable(true)
+                        .referenceId(t.getId())
+                        .status(t.getStaus() != null ? t.getStaus() : "Active")
+                        .build());
+            }
         }
 
         // 3. Foods / Menu Items
-        List<Foods> foods = foodRepository.findAll().stream().limit(6).toList();
-        for (Foods f : foods) {
-            list.add(OwnerOfferingDTO.builder()
-                    .id(f.getId())
-                    .name(f.getName())
-                    .offeringType("FOOD")
-                    .category(f.getFoodCategories() != null ? f.getFoodCategories().getName() : "Menu Item")
-                    .price(f.getPrice())
-                    .description(null)
-                    .imageUrl(f.getImage())
-                    .isAvailable(f.getIsAvailable() != null ? f.getIsAvailable() : true)
-                    .referenceId(f.getId())
-                    .status(Boolean.TRUE.equals(f.getIsAvailable()) ? "Available" : "Unavailable")
-                    .build());
+        if (contracted.contains("RESTAURANT")) {
+            List<Restaurants> ownedRestaurants = restaurantRepository.findByOwnerId(targetOwnerId);
+            for (Restaurants r : ownedRestaurants) {
+                List<Foods> foods = foodRepository.findAll().stream()
+                        .filter(f -> f.getRestaurants() != null && f.getRestaurants().getId().equals(r.getId()))
+                        .toList();
+                for (Foods f : foods) {
+                    list.add(OwnerOfferingDTO.builder()
+                            .id(f.getId())
+                            .name(f.getName())
+                            .offeringType("FOOD")
+                            .category(f.getFoodCategories() != null ? f.getFoodCategories().getName() : "Menu Item")
+                            .price(f.getPrice())
+                            .description(null)
+                            .imageUrl(f.getImage())
+                            .isAvailable(f.getIsAvailable() != null ? f.getIsAvailable() : true)
+                            .referenceId(f.getId())
+                            .status(Boolean.TRUE.equals(f.getIsAvailable()) ? "Available" : "Unavailable")
+                            .build());
+                }
+            }
         }
 
         return list;
@@ -269,6 +331,12 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     @Override
     @Transactional
     public OwnerOfferingDTO createOffering(Long ownerId, OwnerOfferingRequest request) {
+        if (ownerId == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Owner authentication required");
+        }
+        Long targetOwnerId = ownerId;
+        ownerAccessControlService.requireBusinessAccess(targetOwnerId, request.getOfferingType());
+
         String type = request.getOfferingType().toUpperCase();
         switch (type) {
             case "FOOD" -> {
@@ -277,7 +345,8 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 food.setPrice(request.getPrice());
                 food.setImage(request.getImageUrl() != null ? request.getImageUrl() : "default.jpg");
                 food.setIsAvailable(request.getIsAvailable() != null ? request.getIsAvailable() : true);
-                Restaurants rest = restaurantRepository.findAll().stream().findFirst().orElse(null);
+                Restaurants rest = restaurantRepository.findByOwnerId(targetOwnerId).stream().findFirst()
+                        .orElseGet(() -> restaurantRepository.findAll().stream().findFirst().orElse(null));
                 food.setRestaurants(rest);
                 Foods saved = foodRepository.save(food);
                 return OwnerOfferingDTO.builder()
@@ -324,7 +393,7 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 .isAvailable(available)
                 .status(available ? "Available" : "Unavailable")
                 .build();
-    }
+            }
 
     @Override
     @Transactional
@@ -366,8 +435,12 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
 
     private UnifiedBookingResponse mapTicketBooking(TicketBookings tb) {
         String placeName = "Tour Experience";
+        Long ownerId = null;
         if (tb.getTickets() != null && tb.getTickets().getTourPlaces() != null) {
             placeName = tb.getTickets().getTourPlaces().getName();
+            if (tb.getTickets().getTourPlaces().getUser() != null) {
+                ownerId = tb.getTickets().getTourPlaces().getUser().getId();
+            }
         }
         return UnifiedBookingResponse.builder()
                 .id("TB-" + tb.getId())
@@ -376,7 +449,7 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 .customerName(tb.getUser() != null ? tb.getUser().getFullname() : "Guest")
                 .customerEmail(tb.getUser() != null ? tb.getUser().getEmail() : null)
                 .serviceName(placeName)
-                .ownerId(1L)
+                .ownerId(ownerId)
                 .totalAmount(tb.getTotalPrice())
                 .quantity(tb.getQuantity())
                 .status(tb.getStatus())
@@ -391,7 +464,11 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         Long ownerId = null;
         if (fo.getRestuarants() != null) {
             restName = fo.getRestuarants().getName();
-            ownerId = fo.getRestuarants().getId();
+            if (fo.getRestuarants().getOwner() != null) {
+                ownerId = fo.getRestuarants().getOwner().getId();
+            } else {
+                ownerId = fo.getRestuarants().getId();
+            }
         }
         return UnifiedBookingResponse.builder()
                 .id("FO-" + fo.getId())

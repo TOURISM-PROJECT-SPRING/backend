@@ -1,7 +1,5 @@
 package com.example.spring_boot_project_api.controller;
-
 import java.util.List;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -13,14 +11,16 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import com.example.spring_boot_project_api.dto.request.OwnerAdminRequest;
+import com.example.spring_boot_project_api.dto.request.OwnerContractUpdateRequest;
+import com.example.spring_boot_project_api.dto.request.OwnerStatusUpdateRequest;
 import com.example.spring_boot_project_api.dto.request.OwnerVerifyRequest;
 import com.example.spring_boot_project_api.dto.request.RoleCreateRequest;
 import com.example.spring_boot_project_api.dto.request.UserAdminUpdateRequest;
 import com.example.spring_boot_project_api.dto.response.ApiResponse;
 import com.example.spring_boot_project_api.dto.response.MessageResponse;
 import com.example.spring_boot_project_api.dto.response.NotificationResponse;
+import com.example.spring_boot_project_api.dto.response.OwnerManagedBusinessDTO;
 import com.example.spring_boot_project_api.dto.response.OwnerResponse;
 import com.example.spring_boot_project_api.dto.response.PaymentResponse;
 import com.example.spring_boot_project_api.dto.response.PromotionResponse;
@@ -93,6 +93,26 @@ public class ManagementController {
             @RequestBody OwnerVerifyRequest request) {
         String status = request != null ? request.getStatus() : "VERIFIED";
         return ResponseEntity.ok(managementService.verifyOwner(id, status));
+    }
+
+    @PutMapping("/owners/{id}/contract")
+    public ResponseEntity<OwnerResponse> updateOwnerContract(
+            @PathVariable Long id,
+            @RequestBody OwnerContractUpdateRequest request) {
+        List<String> types = request != null ? request.getBusinessTypes() : null;
+        return ResponseEntity.ok(managementService.updateOwnerContract(id, types));
+    }
+
+    @PatchMapping("/owners/{id}/status")
+    public ResponseEntity<OwnerResponse> updateOwnerStatus(
+            @PathVariable Long id,
+            @RequestBody @Valid OwnerStatusUpdateRequest request) {
+        return ResponseEntity.ok(managementService.updateOwnerStatus(id, request.getStatus()));
+    }
+
+    @GetMapping("/owners/{id}/businesses")
+    public ResponseEntity<List<OwnerManagedBusinessDTO>> getOwnerManagedBusinesses(@PathVariable Long id) {
+        return ResponseEntity.ok(managementService.getOwnerManagedBusinesses(id));
     }
 
     @DeleteMapping("/owners/{id}")
