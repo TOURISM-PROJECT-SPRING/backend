@@ -29,6 +29,12 @@ import com.example.spring_boot_project_api.security.TokenBlacklistService;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    // Every role that may operate the owner/business console (mirrors the
+    // frontend OWNER_ROLES). ADMIN retains full oversight.
+    private static final String[] OWNER_FAMILY_ROLES = {
+            "ADMIN", "OWNER", "SUPEROWNER", "OWNER_HOTEL", "OWNER_RESTAURANT", "OWNER_TOUR",
+    };
+
     private final JwtService jwtService;
     private final AppUserDetailsService userDetailsService;
     private final TokenBlacklistService tokenBlacklistService;
@@ -74,7 +80,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // OWNER + ADMIN: owner dashboard
-                        .requestMatchers("/api/owner/**").hasAnyRole("ADMIN", "OWNER")
+                        .requestMatchers("/api/owner/**").hasAnyRole(OWNER_FAMILY_ROLES)
 
                         // ADMIN: admin module + admin-only data + global categories
                         .requestMatchers("/api/management/**").hasRole("ADMIN")
@@ -89,7 +95,7 @@ public class SecurityConfig {
                                 "/api/food-orders",
                                 "/api/food-orders/status/**",
                                 "/api/room-bookings")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
 
                         // OWNER: business management
                         .requestMatchers(HttpMethod.POST,
@@ -98,55 +104,55 @@ public class SecurityConfig {
                                 "/api/restaurants/**", "/api/foods/**",
                                 "/api/food-categories/**", "/api/promotions/**",
                                 "/api/tour-places/**")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/hotels/**", "/api/hotel-rooms/**",
                                 "/api/room-types/**", "/api/rooms/**",
                                 "/api/restaurants/**", "/api/foods/**",
                                 "/api/food-categories/**", "/api/promotions/**",
                                 "/api/tour-places/**")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/hotels/**", "/api/hotel-rooms/**",
                                 "/api/room-types/**", "/api/rooms/**",
                                 "/api/restaurants/**", "/api/foods/**",
                                 "/api/food-categories/**", "/api/promotions/**",
                                 "/api/tour-places/**")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
                         .requestMatchers(HttpMethod.POST, "/api/tour-place-attachments/**",
                                 "/api/hotels/*/attachments", "/api/rooms/*/attachments",
                                 "/api/foods/*/attachments", "/api/restaurants/*/attachments")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
                         .requestMatchers(HttpMethod.DELETE, "/api/tour-place-attachments/**",
                                 "/api/hotels/*/attachments", "/api/rooms/*/attachments",
                                 "/api/foods/*/attachments", "/api/restaurants/*/attachments")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
 
                         .requestMatchers(HttpMethod.POST, "/api/tickets/**")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
                         .requestMatchers(HttpMethod.PUT, "/api/tickets/**")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
                         .requestMatchers(HttpMethod.DELETE, "/api/tickets/**")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
 
                         // OWNER: restaurant order management + ticket staff actions
                         .requestMatchers(HttpMethod.GET,
                                 "/api/food-orders/restaurant/**")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
                         .requestMatchers(HttpMethod.PUT, "/api/food-orders/*/status")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
                         .requestMatchers(HttpMethod.POST,
                                 "/api/ticket-bookings/verify", "/api/ticket-bookings/*/use")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
                         .requestMatchers(HttpMethod.GET,
                                 "/api/ticket-bookings/status/**", "/api/ticket-bookings/date",
                                 "/api/ticket-bookings/ticket/**",
                                 "/api/ticket-bookings",
                                 "/api/room-bookings/status/**", "/api/room-bookings/room/**",
                                 "/api/tour-bookings", "/api/tour-bookings/status/**")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
                         .requestMatchers(HttpMethod.PUT, "/api/room-bookings/*")
-                        .hasAnyRole("ADMIN", "OWNER")
+                        .hasAnyRole(OWNER_FAMILY_ROLES)
 
                         // TOURIST: own reads + booking/commerce actions
                         .requestMatchers(HttpMethod.GET,

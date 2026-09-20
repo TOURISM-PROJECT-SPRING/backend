@@ -139,13 +139,25 @@ public class DataSeeder implements CommandLineRunner {
     // ------------------------------------------------------------------
 
     private void seedRoles() {
-        List<String> names = Arrays.asList(RoleNames.ADMIN, RoleNames.OWNER, RoleNames.TOURIST);
+        List<String> names = Arrays.asList(RoleNames.ADMIN, RoleNames.OWNER, RoleNames.TOURIST,
+                RoleNames.SUPEROWNER, RoleNames.OWNER_HOTEL, RoleNames.OWNER_RESTAURANT,
+                RoleNames.OWNER_TOUR);
         names.forEach(name -> {
             if (!roleRepository.existsByName(name)) {
                 Roles role = new Roles();
                 role.setName(name);
                 roleRepository.save(role);
             }
+        });
+        migrateLegacyRoleName(RoleNames.SUPEROWNER, "SUPER_OWNER");
+        migrateLegacyRoleName(RoleNames.OWNER_RESTAURANT, "OWNER_RESTUARANT");
+    }
+
+    private void migrateLegacyRoleName(String canonical, String legacy) {
+        if (roleRepository.existsByName(canonical)) return;
+        roleRepository.findByName(legacy).ifPresent(role -> {
+            role.setName(canonical);
+            roleRepository.save(role);
         });
     }
 
@@ -165,22 +177,25 @@ public class DataSeeder implements CommandLineRunner {
                 "payments.view", "payouts.manage", "reports.export"));
         ROLE_PERMISSION_SEEDS.put(RoleNames.TOURIST, List.of(
                 "hotels.view", "dining.view", "bookings.view"));
-        ROLE_PERMISSION_SEEDS.put("SUPER_OWNER", List.of(
+        ROLE_PERMISSION_SEEDS.put(RoleNames.SUPEROWNER, List.of(
                 "users.view", "users.edit",
                 "hotels.view", "hotels.edit", "rooms.manage", "bookings.view",
                 "dining.view", "menu.manage", "orders.manage",
                 "places.manage", "tickets.manage", "packages.manage",
                 "payments.view", "payouts.manage", "reports.export",
                 "settings.edit", "logs.view"));
-        ROLE_PERMISSION_SEEDS.put("OWNER_TOUR", List.of(
+        ROLE_PERMISSION_SEEDS.put(RoleNames.OWNER_TOUR, List.of(
                 "places.manage", "tickets.manage", "packages.manage",
                 "bookings.view", "payments.view", "reports.export"));
-        ROLE_PERMISSION_SEEDS.put("OWNER_HOTEL", List.of(
+        ROLE_PERMISSION_SEEDS.put(RoleNames.OWNER_HOTEL, List.of(
                 "hotels.view", "hotels.edit", "rooms.manage", "bookings.view",
                 "payments.view", "reports.export"));
-        ROLE_PERMISSION_SEEDS.put("OWNER_RESTUARANT", List.of(
+        ROLE_PERMISSION_SEEDS.put(RoleNames.OWNER_RESTAURANT, List.of(
                 "dining.view", "menu.manage", "orders.manage",
                 "bookings.view", "payments.view", "reports.export"));
+        // Legacy aliases so any pre-existing rows with the old spellings keep metadata.
+        ROLE_PERMISSION_SEEDS.put("SUPER_OWNER", ROLE_PERMISSION_SEEDS.get(RoleNames.SUPEROWNER));
+        ROLE_PERMISSION_SEEDS.put("OWNER_RESTUARANT", ROLE_PERMISSION_SEEDS.get(RoleNames.OWNER_RESTAURANT));
     }
 
     private static final Map<String, String> ROLE_LABEL_SEEDS = new LinkedHashMap<>();
@@ -202,25 +217,33 @@ public class DataSeeder implements CommandLineRunner {
                 "Default public traveler role for browsing attractions, making room & ticket bookings, and dining reservations.");
         ROLE_COLOR_SEEDS.put(RoleNames.TOURIST, "emerald");
 
-        ROLE_LABEL_SEEDS.put("SUPER_OWNER", "Super Partner");
-        ROLE_DESCRIPTION_SEEDS.put("SUPER_OWNER",
+        ROLE_LABEL_SEEDS.put(RoleNames.SUPEROWNER, "Super Partner");
+        ROLE_DESCRIPTION_SEEDS.put(RoleNames.SUPEROWNER,
                 "Top-tier partner account with extended management rights across the platform.");
-        ROLE_COLOR_SEEDS.put("SUPER_OWNER", "amber");
+        ROLE_COLOR_SEEDS.put(RoleNames.SUPEROWNER, "amber");
 
-        ROLE_LABEL_SEEDS.put("OWNER_TOUR", "Tour Operations Partner");
-        ROLE_DESCRIPTION_SEEDS.put("OWNER_TOUR",
+        ROLE_LABEL_SEEDS.put(RoleNames.OWNER_TOUR, "Tour Operations Partner");
+        ROLE_DESCRIPTION_SEEDS.put(RoleNames.OWNER_TOUR,
                 "Manage tourist attractions, entrance tickets, and tour packages.");
-        ROLE_COLOR_SEEDS.put("OWNER_TOUR", "blue");
+        ROLE_COLOR_SEEDS.put(RoleNames.OWNER_TOUR, "blue");
 
-        ROLE_LABEL_SEEDS.put("OWNER_HOTEL", "Hotel Partner");
-        ROLE_DESCRIPTION_SEEDS.put("OWNER_HOTEL",
+        ROLE_LABEL_SEEDS.put(RoleNames.OWNER_HOTEL, "Hotel Partner");
+        ROLE_DESCRIPTION_SEEDS.put(RoleNames.OWNER_HOTEL,
                 "Manage hotel properties, room inventories, and reservations.");
-        ROLE_COLOR_SEEDS.put("OWNER_HOTEL", "green");
+        ROLE_COLOR_SEEDS.put(RoleNames.OWNER_HOTEL, "green");
 
-        ROLE_LABEL_SEEDS.put("OWNER_RESTUARANT", "Restaurant Partner");
-        ROLE_DESCRIPTION_SEEDS.put("OWNER_RESTUARANT",
+        ROLE_LABEL_SEEDS.put(RoleNames.OWNER_RESTAURANT, "Restaurant Partner");
+        ROLE_DESCRIPTION_SEEDS.put(RoleNames.OWNER_RESTAURANT,
                 "Manage dining listings, menus, and food order fulfilment.");
-        ROLE_COLOR_SEEDS.put("OWNER_RESTUARANT", "blue");
+        ROLE_COLOR_SEEDS.put(RoleNames.OWNER_RESTAURANT, "blue");
+
+        // Legacy aliases so pre-existing rows with the old spellings keep metadata.
+        ROLE_LABEL_SEEDS.put("SUPER_OWNER", ROLE_LABEL_SEEDS.get(RoleNames.SUPEROWNER));
+        ROLE_DESCRIPTION_SEEDS.put("SUPER_OWNER", ROLE_DESCRIPTION_SEEDS.get(RoleNames.SUPEROWNER));
+        ROLE_COLOR_SEEDS.put("SUPER_OWNER", ROLE_COLOR_SEEDS.get(RoleNames.SUPEROWNER));
+        ROLE_LABEL_SEEDS.put("OWNER_RESTUARANT", ROLE_LABEL_SEEDS.get(RoleNames.OWNER_RESTAURANT));
+        ROLE_DESCRIPTION_SEEDS.put("OWNER_RESTUARANT", ROLE_DESCRIPTION_SEEDS.get(RoleNames.OWNER_RESTAURANT));
+        ROLE_COLOR_SEEDS.put("OWNER_RESTUARANT", ROLE_COLOR_SEEDS.get(RoleNames.OWNER_RESTAURANT));
     }
 
     private void seedRoleMetadata() {

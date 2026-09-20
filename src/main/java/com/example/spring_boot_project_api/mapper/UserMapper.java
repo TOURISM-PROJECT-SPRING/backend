@@ -43,11 +43,27 @@ public class UserMapper {
                                 .map(ur -> ur.getRole() != null ? ur.getRole().getName() : null)
                                 .filter(name -> name != null)
                                 .collect(Collectors.toList()))
+                .permissions(collectPermissions(user))
                 .assignedBusinesses(assignedBusinesses)
                 .ownerStatus(ownerStatus)
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
+    }
+
+    public static List<String> collectPermissions(Users user) {
+        if (user == null || user.getUserRoles() == null) {
+            return Collections.emptyList();
+        }
+        return user.getUserRoles().stream()
+                .map(ur -> ur.getRole())
+                .filter(role -> role != null && role.getPermissions() != null)
+                .flatMap(role -> role.getPermissions().stream())
+                .filter(permission -> permission != null && !permission.isBlank())
+                .map(String::trim)
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
     }
 
     public static List<UserResponse> toResponseList(List<Users> users) {

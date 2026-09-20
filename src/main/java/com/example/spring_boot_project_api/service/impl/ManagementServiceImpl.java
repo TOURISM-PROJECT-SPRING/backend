@@ -32,6 +32,7 @@ import com.example.spring_boot_project_api.dto.response.UserResponse;
 import com.example.spring_boot_project_api.enums.GenderEnum;
 import com.example.spring_boot_project_api.enums.UserEnum;
 import com.example.spring_boot_project_api.exception.ResourceNotFoundException;
+import com.example.spring_boot_project_api.mapper.UserMapper;
 import com.example.spring_boot_project_api.model.BusinesssOwnerProfiles;
 import com.example.spring_boot_project_api.model.Notifications;
 import com.example.spring_boot_project_api.model.Payments;
@@ -54,6 +55,7 @@ import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.repository.UserRoleRepository;
 import com.example.spring_boot_project_api.service.ManagementService;
 import com.example.spring_boot_project_api.service.OwnerAccessControlService;
+import com.example.spring_boot_project_api.util.RoleNames;
 
 import lombok.RequiredArgsConstructor;
 
@@ -116,18 +118,13 @@ public class ManagementServiceImpl implements ManagementService {
             user.getUserRoles().clear();
             boolean hasOwnerRole = false;
             for (String roleName : request.getRoles()) {
-                Roles role = roleRepository.findByName(roleName)
-                        .orElseThrow(() -> new ResourceNotFoundException("Role name: " + roleName));
+                Roles role = findOrCreateRole(roleName);
+                if (role == null) continue;
                 UserRoles userRole = new UserRoles();
                 userRole.setUser(user);
                 userRole.setRole(role);
                 user.getUserRoles().add(userRole);
-                if ("OWNER".equalsIgnoreCase(roleName)
-                        || "SUPER_OWNER".equalsIgnoreCase(roleName)
-                        || "OWNER_HOTEL".equalsIgnoreCase(roleName)
-                        || "OWNER_RESTAURANT".equalsIgnoreCase(roleName)
-                        || "OWNER_RESTUARANT".equalsIgnoreCase(roleName)
-                        || "OWNER_TOUR".equalsIgnoreCase(roleName)) {
+                if (OWNER_ROLE_NAMES.contains(role.getName())) {
                     hasOwnerRole = true;
                 }
             }
@@ -154,6 +151,30 @@ public class ManagementServiceImpl implements ManagementService {
         }
 
         return toUserResponse(userRepository.save(user));
+    }
+
+    private static final Set<String> OWNER_ROLE_NAMES = Set.of(
+            RoleNames.OWNER,
+            RoleNames.SUPEROWNER,
+            RoleNames.OWNER_HOTEL,
+            RoleNames.OWNER_RESTAURANT,
+            RoleNames.OWNER_TOUR);
+
+    private Roles findOrCreateRole(String requestedName) {
+        if (requestedName == null || requestedName.isBlank()) return null;
+        String canonical = canonicalRoleName(requestedName);
+        return roleRepository.findByName(canonical).orElseGet(() -> {
+            Roles role = new Roles();
+            role.setName(canonical);
+            return roleRepository.save(role);
+        });
+    }
+
+    private String canonicalRoleName(String requestedName) {
+        String raw = requestedName.trim().toUpperCase();
+        if ("SUPER_OWNER".equals(raw)) return RoleNames.SUPEROWNER;
+        if ("OWNER_RESTUARANT".equals(raw)) return RoleNames.OWNER_RESTAURANT;
+        return raw;
     }
 
     @Override
@@ -621,6 +642,7 @@ public class ManagementServiceImpl implements ManagementService {
                         .map(ur -> ur.getRole() != null ? ur.getRole().getName() : null)
                         .filter(r -> r != null)
                         .collect(Collectors.toList()))
+                .permissions(UserMapper.collectPermissions(u))
                 .assignedBusinesses(assignedBusinesses)
                 .ownerStatus(ownerStatus)
                 .createdAt(u.getCreatedAt())
