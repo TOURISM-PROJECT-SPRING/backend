@@ -2,6 +2,7 @@ package com.example.spring_boot_project_api.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +16,7 @@ import com.example.spring_boot_project_api.dto.request.LoginRequest;
 import com.example.spring_boot_project_api.dto.request.ProfileUpdateRequest;
 import com.example.spring_boot_project_api.dto.request.RegisterRequest;
 import com.example.spring_boot_project_api.dto.request.ResetPasswordRequest;
+import com.example.spring_boot_project_api.dto.request.SocialLoginRequest;
 import com.example.spring_boot_project_api.dto.response.AuthResponse;
 import com.example.spring_boot_project_api.dto.response.ForgotPasswordResponse;
 import com.example.spring_boot_project_api.dto.response.MessageResponse;
@@ -38,6 +40,13 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/social/{provider}")
+    public ResponseEntity<AuthResponse> socialLogin(
+            @PathVariable String provider,
+            @Valid @RequestBody SocialLoginRequest request) {
+        return ResponseEntity.ok(authService.loginWithSocial(provider, request));
     }
 
     @PutMapping("/profile")

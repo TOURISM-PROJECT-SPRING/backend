@@ -50,6 +50,9 @@ services:
       DB_HOST: postgres
       DB_PORT: "5432"
       REDIS_HOST: redis
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET}
 
     depends_on:
       - postgres
@@ -57,5 +60,4 @@ services:
 
 volumes:
   postgres_data:
-
   redis_data:

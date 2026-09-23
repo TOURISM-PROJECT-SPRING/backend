@@ -67,6 +67,7 @@ public class SecurityConfig {
                         // contact submission, newsletter subscription
                         .requestMatchers("/api/auth/register", "/api/auth/login",
                                 "/api/auth/forgot-password", "/api/auth/reset-password",
+                                "/api/auth/social/**",
                                 "/swagger-ui.html", "/swagger-ui/**",
                                 "/api-docs/**", "/v3/api-docs/**",
                                 "/api/payments/callback", "/api/payments/callback-form",

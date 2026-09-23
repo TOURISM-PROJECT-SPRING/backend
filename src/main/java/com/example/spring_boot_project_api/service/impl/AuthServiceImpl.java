@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -16,13 +17,18 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
+import com.example.spring_boot_project_api.config.SocialAuthConfig;
 import com.example.spring_boot_project_api.dto.request.ChangePasswordRequest;
 import com.example.spring_boot_project_api.dto.request.ForgotPasswordRequest;
 import com.example.spring_boot_project_api.dto.request.LoginRequest;
 import com.example.spring_boot_project_api.dto.request.ProfileUpdateRequest;
 import com.example.spring_boot_project_api.dto.request.RegisterRequest;
 import com.example.spring_boot_project_api.dto.request.ResetPasswordRequest;
+import com.example.spring_boot_project_api.dto.request.SocialLoginRequest;
 import com.example.spring_boot_project_api.dto.response.AuthResponse;
 import com.example.spring_boot_project_api.dto.response.ForgotPasswordResponse;
 import com.example.spring_boot_project_api.dto.response.MessageResponse;
@@ -51,6 +57,21 @@ import lombok.RequiredArgsConstructor;
 public class AuthServiceImpl implements AuthService {
 
     private static final String TOKEN_TYPE = "Bearer";
+    private static final Map<String, String> SUPPORTED_PROVIDERS = Map.of(
+            "google", "Google",
+            "facebook", "Facebook");
+
+    // RestClient is instantiated directly (verified against the provider APIs with
+    // a short timeout) rather than injected, so it never collides with the
+    // Bakong / Gemini RestTemplate beans.
+    private static final RestClient SOCIAL_REST_CLIENT = buildSocialRestClient();
+
+    private static RestClient buildSocialRestClient() {
+        var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(java.time.Duration.ofSeconds(10));
+        factory.setReadTimeout(java.time.Duration.ofSeconds(15));
+        return RestClient.builder().requestFactory(factory).build();
+    }
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -60,6 +81,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final SocialAuthConfig socialAuthConfig;
 
     @Value("${auth.reset-token-expiration-minutes:30}")
     private long resetTokenExpirationMinutes;
@@ -113,6 +135,107 @@ public class AuthServiceImpl implements AuthService {
         } catch (AuthenticationException ex) {
             throw new UnauthorizedException("Invalid username or password");
         }
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse loginWithSocial(String provider, SocialLoginRequest request) {
+        String displayName = SUPPORTED_PROVIDERS.get(provider);
+        if (displayName == null) {
+            throw new IllegalArgumentException("Unsupported social provider: " + provider);
+        }
+        SocialUser social = verifySocialToken(provider, request.getToken());
+        if (social.email() == null || social.email().isBlank()) {
+            throw new UnauthorizedException(
+                    "Your " + displayName + " account does not provide an email address");
+        }
+        if (provider.equals("google") && !social.emailVerified()) {
+            throw new UnauthorizedException("Your Google email address is not verified");
+        }
+        Users user = userRepository.findByEmail(social.email()).orElse(null);
+        if (user == null) {
+            user = createSocialUser(provider, social);
+        }
+        return buildAuthResponse(user);
+    }
+
+    private SocialUser verifySocialToken(String provider, String token) {
+        try {
+            if (provider.equals("google")) {
+                String url = socialAuthConfig.getGoogleTokenInfoUrl() + "?access_token=" + token;
+                Map<String, Object> info = SOCIAL_REST_CLIENT.get().uri(url)
+                        .retrieve().body(Map.class);
+                String audience = socialAuthConfig.getGoogleAudience();
+                if (info != null && audience != null && !audience.isBlank()
+                        && !audience.equals(stringOf(info.get("aud")))) {
+                    throw new UnauthorizedException("Google token was issued for a different client");
+                }
+                return new SocialUser(
+                        stringOf(info == null ? null : info.get("sub")),
+                        stringOf(info == null ? null : info.get("email")),
+                        stringOf(info == null ? null : info.get("name")),
+                        !"false".equalsIgnoreCase(stringOf(info == null ? null : info.get("email_verified"))));
+            }
+            if (provider.equals("facebook")) {
+                String url = socialAuthConfig.getFacebookMeUrl()
+                        + "?fields=id,name,email&access_token=" + token;
+                Map<String, Object> info = SOCIAL_REST_CLIENT.get().uri(url)
+                        .retrieve().body(Map.class);
+                return new SocialUser(
+                        stringOf(info == null ? null : info.get("id")),
+                        stringOf(info == null ? null : info.get("email")),
+                        stringOf(info == null ? null : info.get("name")),
+                        true);
+            }
+            throw new UnauthorizedException("Unsupported social provider: " + provider);
+        } catch (HttpClientErrorException ex) {
+            throw new UnauthorizedException("The social token is invalid or expired");
+        } catch (RestClientException ex) {
+            throw new UnauthorizedException("Could not verify your social account: " + ex.getMessage());
+        }
+    }
+
+    private Users createSocialUser(String provider, SocialUser social) {
+        Roles defaultRole = roleRepository.findByName(RoleNames.TOURIST)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Default " + RoleNames.TOURIST + " role is not configured"));
+
+        String name = social.name() != null && !social.name().isBlank()
+                ? social.name()
+                : social.email().substring(0, social.email().indexOf('@'));
+
+        Users user = new Users();
+        user.setFullname(name);
+        user.setUsername(uniqueUsername(provider + "_" + social.id()));
+        user.setEmail(social.email());
+        // Random unusable password: the account is only ever signed in via the
+        // provider, not with a password.
+        user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.setGender(GenderEnum.Male);
+        Users saved = userRepository.save(user);
+
+        UserRoles userRole = new UserRoles();
+        userRole.setUser(saved);
+        userRole.setRole(defaultRole);
+        userRoleRepository.save(userRole);
+        saved.getUserRoles().add(userRole);
+        return saved;
+    }
+
+    private String uniqueUsername(String base) {
+        String candidate = base;
+        int suffix = 1;
+        while (userRepository.existsByUsername(candidate)) {
+            candidate = base + "_" + suffix++;
+        }
+        return candidate;
+    }
+
+    private static String stringOf(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private record SocialUser(String id, String email, String name, boolean emailVerified) {
     }
 
     @Override
