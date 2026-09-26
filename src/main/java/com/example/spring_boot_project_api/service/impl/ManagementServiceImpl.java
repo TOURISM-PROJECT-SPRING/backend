@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -97,8 +98,12 @@ public class ManagementServiceImpl implements ManagementService {
         Users user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
 
-        if (!user.getEmail().equalsIgnoreCase(request.getEmail())
-                && userRepository.existsByEmail(request.getEmail())) {
+        String email = request.getEmail() == null
+                ? null
+                : request.getEmail().trim().toLowerCase(Locale.ROOT);
+        if (email != null
+                && (user.getEmail() == null || !user.getEmail().equalsIgnoreCase(email))
+                && userRepository.existsByEmailIgnoreCase(email)) {
             throw new IllegalArgumentException("Email is already taken: " + request.getEmail());
         }
         if (!user.getUsername().equalsIgnoreCase(request.getUsername())
@@ -108,7 +113,7 @@ public class ManagementServiceImpl implements ManagementService {
 
         user.setFullname(request.getFullname());
         user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
+        user.setEmail(email);
         if (request.getGender() != null) user.setGender(request.getGender());
         if (request.getAddress() != null) user.setAddress(request.getAddress());
         if (request.getDateOfBirth() != null) user.setDateOfBirth(request.getDateOfBirth());
@@ -393,9 +398,9 @@ public class ManagementServiceImpl implements ManagementService {
                 userChanged = true;
             }
             if (request.getUserEmail() != null && !request.getUserEmail().isBlank()
-                    && !request.getUserEmail().equalsIgnoreCase(user.getEmail())) {
-                String newEmail = request.getUserEmail().trim().toLowerCase();
-                if (!userRepository.existsByEmail(newEmail)) {
+                    && (user.getEmail() == null || !request.getUserEmail().equalsIgnoreCase(user.getEmail()))) {
+                String newEmail = request.getUserEmail().trim().toLowerCase(Locale.ROOT);
+                if (!userRepository.existsByEmailIgnoreCase(newEmail)) {
                     user.setEmail(newEmail);
                     userChanged = true;
                 }

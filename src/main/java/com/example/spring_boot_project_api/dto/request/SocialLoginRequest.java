@@ -1,6 +1,5 @@
 package com.example.spring_boot_project_api.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,6 +11,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SocialLoginRequest {
 
-    @NotBlank(message = "Provider token is required")
+    // Google hands the browser an access token directly.
     private String token;
+
+    // GitHub has no browser SDK, so the browser only gets a short-lived
+    // authorization code that the backend exchanges server-side.
+    private String code;
 }

@@ -49,10 +49,11 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
+      DB_NAME: tourism_db
       REDIS_HOST: redis
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID}
-      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
 
     depends_on:
       - postgres

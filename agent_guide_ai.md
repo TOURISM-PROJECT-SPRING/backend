@@ -62,6 +62,38 @@ Read from `.env` (see `.env.example`) via `springboot4-dotenv` and injected with
 | `GERMINI_API_KEY` / `GEMINI_API_KEY` | Google Gemini AI API key   | —              |
 | `GEMINI_MODEL`            | Gemini primary model                       | gemini-3.6-flash |
 | `SERVER_PORT`             | HTTP port                                  | 8080           |
+| `GOOGLE_CLIENT_ID`        | Google OAuth client id (tokeninfo audience)| —              |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth app (code exchange) | —        |
+
+## Social login
+
+`POST /api/auth/social/{provider}` is public and handled by
+`service/impl/AuthServiceImpl.loginWithSocial`. Two providers, two different
+credential shapes — `dto/request/SocialLoginRequest` carries **either**:
+
+| Provider   | Frontend credential        | Backend verification |
+|------------|----------------------------|----------------------|
+| `google`   | `token` (GIS access token) | `social.google.token-info-url` (`/tokeninfo`), rejects a foreign `social.google.audience` |
+| `github`   | `code` (OAuth code)        | exchange at `social.github.token-url`, then `/user` + `/user/emails` |
+
+- Google has a browser SDK, so the frontend gets a token from a popup and forwards
+  it. **GitHub has no browser SDK** — the frontend redirects to
+  `github.com/login/oauth/authorize` and GitHub returns to `/login?code=...`, which
+  the backend exchanges server-side. `GITHUB_CLIENT_SECRET` must never be sent to the
+  browser; the frontend only needs `VITE_GITHUB_CLIENT_ID` and the callback URL must
+  match the registered *Authorization callback URL* exactly.
+- `SOCIAL_REST_CLIENT` is a static `RestClient` (not a bean) so it cannot collide with
+  the Bakong / Gemini clients. It sets a default `User-Agent` because GitHub rejects API
+  calls without one.
+- Identity is keyed on `social_accounts(provider, provider_user_id)`, so a repeat login
+  reuses the same user even if the email changes, and a GitHub user cannot be hijacked
+  by changing their address. If no link exists, the email is used to try to attach to an
+  existing account, otherwise `createSocialUser` registers a new `TOURIST`.
+- `users.email` is **nullable**. `/user` only returns a *public* email, so
+  `/user/emails` is queried (scope `user:email`) for the primary **verified** address;
+  the GitHub `login` doubles as the username, collision-guarded by `uniqueUsername`.
+  A user with no verified address lands with a null email and can fill it in later via
+  `PUT /api/auth/profile`.
 
 ## API surface
 

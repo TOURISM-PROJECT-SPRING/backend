@@ -43,7 +43,7 @@ public class Users {
     @Column(name = "username", nullable = false, unique = true, length = 200)
     private String username;
 
-    @Column(name = "email",nullable = false, unique = true, length = 200)
+    @Column(name = "email", unique = true, length = 200)
     private String email;
 
     @Column(name = "phone", length = 30)
@@ -100,6 +100,11 @@ public class Users {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<UserAttachments> attachments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<SocialAccount> socialAccounts = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

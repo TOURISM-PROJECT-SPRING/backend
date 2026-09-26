@@ -35,8 +35,10 @@ public class CartServiceImpl implements CartService {
     private final RestaurantRepository restaurantRepository;
     private final FoodRepository foodRepository;
 
+    // Not read-only: resolveCart() INSERTs a new cart when the user has none for
+    // this restaurant yet. Marking it readOnly made that INSERT fail with
+    // "cannot execute INSERT in a read-only transaction".
     @Override
-    @Transactional(readOnly = true)
     public CartResponse getOrCreateCart(Long userId, Long restaurantId) {
         return CartMapper.toResponse(resolveCart(userId, restaurantId));
     }

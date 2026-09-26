@@ -4,11 +4,17 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -38,10 +44,12 @@ import com.example.spring_boot_project_api.exception.UnauthorizedException;
 import com.example.spring_boot_project_api.mapper.UserMapper;
 import com.example.spring_boot_project_api.model.PasswordResetToken;
 import com.example.spring_boot_project_api.model.Roles;
+import com.example.spring_boot_project_api.model.SocialAccount;
 import com.example.spring_boot_project_api.model.UserRoles;
 import com.example.spring_boot_project_api.model.Users;
 import com.example.spring_boot_project_api.repository.PasswordResetTokenRepository;
 import com.example.spring_boot_project_api.repository.RoleRepository;
+import com.example.spring_boot_project_api.repository.SocialAccountRepository;
 import com.example.spring_boot_project_api.repository.UserRepository;
 import com.example.spring_boot_project_api.repository.UserRoleRepository;
 import com.example.spring_boot_project_api.security.AppUserDetails;
@@ -51,15 +59,17 @@ import com.example.spring_boot_project_api.service.AuthService;
 import com.example.spring_boot_project_api.util.RoleNames;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
     private static final String TOKEN_TYPE = "Bearer";
     private static final Map<String, String> SUPPORTED_PROVIDERS = Map.of(
             "google", "Google",
-            "facebook", "Facebook");
+            "github", "GitHub");
 
     // RestClient is instantiated directly (verified against the provider APIs with
     // a short timeout) rather than injected, so it never collides with the
@@ -70,7 +80,12 @@ public class AuthServiceImpl implements AuthService {
         var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(java.time.Duration.ofSeconds(10));
         factory.setReadTimeout(java.time.Duration.ofSeconds(15));
-        return RestClient.builder().requestFactory(factory).build();
+        // GitHub rejects API calls without a User-Agent, so set one for all providers.
+        return RestClient.builder()
+                .requestFactory(factory)
+                .defaultHeader("User-Agent", "smart-tourism-api")
+                .defaultHeader("X-GitHub-Api-Version", "2022-11-28")
+                .build();
     }
 
     private final UserRepository userRepository;
@@ -82,6 +97,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final TokenBlacklistService tokenBlacklistService;
     private final SocialAuthConfig socialAuthConfig;
+    private final SocialAccountRepository socialAccountRepository;
 
     @Value("${auth.reset-token-expiration-minutes:30}")
     private long resetTokenExpirationMinutes;
@@ -140,26 +156,45 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse loginWithSocial(String provider, SocialLoginRequest request) {
-        String displayName = SUPPORTED_PROVIDERS.get(provider);
+        String normalizedProvider = provider == null ? "" : provider.trim().toLowerCase(Locale.ROOT);
+        String displayName = SUPPORTED_PROVIDERS.get(normalizedProvider);
         if (displayName == null) {
             throw new IllegalArgumentException("Unsupported social provider: " + provider);
         }
-        SocialUser social = verifySocialToken(provider, request.getToken());
-        if (social.email() == null || social.email().isBlank()) {
-            throw new UnauthorizedException(
-                    "Your " + displayName + " account does not provide an email address");
+
+        String token = trimToNull(request.getToken());
+        String code = trimToNull(request.getCode());
+        if (token == null && code == null) {
+            throw new IllegalArgumentException("A social token or authorization code is required");
         }
-        if (provider.equals("google") && !social.emailVerified()) {
+
+        SocialUser social = verifySocialToken(normalizedProvider, token, code);
+        if (social.id() == null || social.id().isBlank()) {
+            throw new UnauthorizedException(
+                    "The " + displayName + " account did not return a user id");
+        }
+        String providerUserId = social.id().trim();
+        if (normalizedProvider.equals("google") && !social.emailVerified()) {
             throw new UnauthorizedException("Your Google email address is not verified");
         }
-        Users user = userRepository.findByEmail(social.email()).orElse(null);
+
+        String email = normalizeEmail(social.email());
+        Users user = socialAccountRepository
+                .findByProviderAndProviderUserId(normalizedProvider, providerUserId)
+                .map(SocialAccount::getUser)
+                .orElse(null);
+
         if (user == null) {
-            user = createSocialUser(provider, social);
+            user = email == null ? null : userRepository.findByEmailIgnoreCase(email).orElse(null);
+            if (user == null) {
+                user = createSocialUser(normalizedProvider, displayName, social, email);
+            }
+            linkSocialAccount(normalizedProvider, providerUserId, user);
         }
         return buildAuthResponse(user);
     }
 
-    private SocialUser verifySocialToken(String provider, String token) {
+    private SocialUser verifySocialToken(String provider, String token, String code) {
         try {
             if (provider.equals("google")) {
                 String url = socialAuthConfig.getGoogleTokenInfoUrl() + "?access_token=" + token;
@@ -174,18 +209,30 @@ public class AuthServiceImpl implements AuthService {
                         stringOf(info == null ? null : info.get("sub")),
                         stringOf(info == null ? null : info.get("email")),
                         stringOf(info == null ? null : info.get("name")),
-                        !"false".equalsIgnoreCase(stringOf(info == null ? null : info.get("email_verified"))));
+                        !"false".equalsIgnoreCase(stringOf(info == null ? null : info.get("email_verified"))),
+                        null);
             }
-            if (provider.equals("facebook")) {
-                String url = socialAuthConfig.getFacebookMeUrl()
-                        + "?fields=id,name,email&access_token=" + token;
-                Map<String, Object> info = SOCIAL_REST_CLIENT.get().uri(url)
-                        .retrieve().body(Map.class);
+            if (provider.equals("github")) {
+                String accessToken = exchangeGithubCode(code);
+                Map<String, Object> profile = githubGet(accessToken, "/user");
+                if (profile == null) {
+                    throw new UnauthorizedException("GitHub did not return a profile");
+                }
+                log.debug("GitHub /user returned fields: {}", profile.keySet());
+                String login = stringOf(profile.get("login"));
+                // /user only exposes a public email; private addresses need /user/emails.
+                String email = normalizeEmail(stringOf(profile.get("email")));
+                if (email == null) {
+                    email = primaryVerifiedGithubEmail(accessToken);
+                }
                 return new SocialUser(
-                        stringOf(info == null ? null : info.get("id")),
-                        stringOf(info == null ? null : info.get("email")),
-                        stringOf(info == null ? null : info.get("name")),
-                        true);
+                        stringOf(profile.get("id")),
+                        email,
+                        trimToNull(stringOf(profile.get("name"))) != null
+                                ? stringOf(profile.get("name"))
+                                : login,
+                        email != null,
+                        login);
             }
             throw new UnauthorizedException("Unsupported social provider: " + provider);
         } catch (HttpClientErrorException ex) {
@@ -195,21 +242,77 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private Users createSocialUser(String provider, SocialUser social) {
+    private String exchangeGithubCode(String code) {
+        String clientId = socialAuthConfig.getGithubClientId();
+        String clientSecret = socialAuthConfig.getGithubClientSecret();
+        if (isBlank(clientId) || isBlank(clientSecret)) {
+            throw new IllegalStateException(
+                    "GitHub login is not configured (set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET)");
+        }
+        Map<String, Object> body = SOCIAL_REST_CLIENT.post()
+                .uri(socialAuthConfig.getGithubTokenUrl())
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(Map.of("client_id", clientId, "client_secret", clientSecret, "code", code))
+                .retrieve().body(Map.class);
+        String accessToken = trimToNull(stringOf(body == null ? null : body.get("access_token")));
+        if (accessToken == null) {
+            String description = stringOf(body == null ? null : body.get("error_description"));
+            throw new UnauthorizedException("GitHub rejected the authorization code"
+                    + (isBlank(description) ? "" : ": " + description));
+        }
+        return accessToken;
+    }
+
+    private Map<String, Object> githubGet(String accessToken, String path) {
+        return SOCIAL_REST_CLIENT.get()
+                .uri(socialAuthConfig.getGithubApiUrl() + path)
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/vnd.github+json")
+                .retrieve().body(Map.class);
+    }
+
+    private String primaryVerifiedGithubEmail(String accessToken) {
+        List<Map<String, Object>> emails = SOCIAL_REST_CLIENT.get()
+                .uri(socialAuthConfig.getGithubApiUrl() + "/user/emails")
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/vnd.github+json")
+                .retrieve().body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+        if (emails == null) {
+            return null;
+        }
+        return emails.stream()
+                .filter(entry -> Boolean.TRUE.equals(entry.get("verified")))
+                .sorted(Comparator.comparing(entry -> !Boolean.TRUE.equals(entry.get("primary"))))
+                .map(entry -> normalizeEmail(stringOf(entry.get("email"))))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private Users createSocialUser(String provider, String displayName, SocialUser social, String email) {
         Roles defaultRole = roleRepository.findByName(RoleNames.TOURIST)
                 .orElseThrow(() -> new IllegalStateException(
                         "Default " + RoleNames.TOURIST + " role is not configured"));
 
-        String name = social.name() != null && !social.name().isBlank()
-                ? social.name()
-                : social.email().substring(0, social.email().indexOf('@'));
+        String name = social.name() == null || social.name().isBlank()
+                ? socialNameFromEmail(email, displayName)
+                : social.name().trim();
+        if (name.length() > 200) {
+            name = name.substring(0, 200);
+        }
+        // GitHub handles are already unique and human-readable, so use them when
+        // the provider supplies one; uniqueUsername() still guards collisions.
+        String hinted = trimToNull(social.usernameHint());
+        String usernameBase = hinted != null ? hinted : provider + "_" + social.id();
+        if (usernameBase.length() > 200) {
+            usernameBase = usernameBase.substring(0, 200);
+        }
 
         Users user = new Users();
         user.setFullname(name);
-        user.setUsername(uniqueUsername(provider + "_" + social.id()));
-        user.setEmail(social.email());
-        // Random unusable password: the account is only ever signed in via the
-        // provider, not with a password.
+        user.setUsername(uniqueUsername(usernameBase));
+        user.setEmail(email);
         user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
         user.setGender(GenderEnum.Male);
         Users saved = userRepository.save(user);
@@ -222,11 +325,43 @@ public class AuthServiceImpl implements AuthService {
         return saved;
     }
 
+    private void linkSocialAccount(String provider, String providerUserId, Users user) {
+        SocialAccount socialAccount = new SocialAccount();
+        socialAccount.setProvider(provider);
+        socialAccount.setProviderUserId(providerUserId);
+        socialAccount.setUser(user);
+        socialAccountRepository.save(socialAccount);
+        if (user.getSocialAccounts() != null) {
+            user.getSocialAccounts().add(socialAccount);
+        }
+    }
+
+    private static String socialNameFromEmail(String email, String displayName) {
+        if (email != null) {
+            int at = email.indexOf('@');
+            if (at > 0) {
+                return email.substring(0, at);
+            }
+        }
+        return displayName + " User";
+    }
+
+    private static String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        String normalized = email.trim().toLowerCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
     private String uniqueUsername(String base) {
-        String candidate = base;
+        String safeBase = base.length() > 200 ? base.substring(0, 200) : base;
+        String candidate = safeBase;
         int suffix = 1;
         while (userRepository.existsByUsername(candidate)) {
-            candidate = base + "_" + suffix++;
+            String suffixText = "_" + suffix++;
+            int prefixLength = Math.max(0, 200 - suffixText.length());
+            candidate = safeBase.substring(0, Math.min(safeBase.length(), prefixLength)) + suffixText;
         }
         return candidate;
     }
@@ -235,19 +370,33 @@ public class AuthServiceImpl implements AuthService {
         return value == null ? null : String.valueOf(value);
     }
 
-    private record SocialUser(String id, String email, String name, boolean emailVerified) {
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private record SocialUser(String id, String email, String name, boolean emailVerified,
+                              String usernameHint) {
     }
 
     @Override
     @Transactional
     public AuthResponse updateProfile(ProfileUpdateRequest request) {
         Users user = currentUser();
-        if (userRepository.existsByEmail(request.getEmail())
-                && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+        String email = normalizeEmail(request.getEmail());
+        if (email != null && userRepository.existsByEmailIgnoreCase(email)
+                && (user.getEmail() == null || !user.getEmail().equalsIgnoreCase(email))) {
             throw new IllegalArgumentException("Email is already registered");
         }
         user.setFullname(request.getFullname());
-        user.setEmail(request.getEmail());
+        user.setEmail(email);
         user.setPhone(request.getPhone());
         user.setAddress(request.getAddress());
         Users saved = userRepository.save(user);

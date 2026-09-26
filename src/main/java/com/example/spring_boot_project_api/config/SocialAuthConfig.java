@@ -21,15 +21,20 @@ public class SocialAuthConfig {
 
 
     // =========================
-    // Facebook
+    // GitHub
     // =========================
 
-    @Value("${social.facebook.me-url:https://graph.facebook.com/v19.0/me}")
-    private String facebookMeUrl;
+    // GitHub has no browser SDK: the web flow is an OAuth code redirect, so the
+    // backend exchanges the code itself. The client secret must never leave here.
+    @Value("${social.github.api-url:https://api.github.com}")
+    private String githubApiUrl;
 
-    @Value("${social.facebook.app-id:}")
-    private String facebookAppId;
+    @Value("${social.github.token-url:https://github.com/login/oauth/access_token}")
+    private String githubTokenUrl;
 
-    @Value("${social.facebook.app-secret:}")
-    private String facebookAppSecret;
+    @Value("${social.github.client-id:}")
+    private String githubClientId;
+
+    @Value("${social.github.client-secret:}")
+    private String githubClientSecret;
 }
