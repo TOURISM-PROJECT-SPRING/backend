@@ -39,6 +39,10 @@ public class RestaurantMapper {
             response.setTourismPlaceId(entity.getTourPlaces().getId());
             response.setTourismPlaceName(entity.getTourPlaces().getName());
         }
+        if (entity.getOwner() != null) {
+            response.setOwnerId(entity.getOwner().getId());
+            response.setOwnerName(entity.getOwner().getFullname());
+        }
         response.setCreatedAt(entity.getCreatedAt());
         response.setUpdatedAt(entity.getUpdatedAt());
         return response;

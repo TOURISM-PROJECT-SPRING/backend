@@ -33,6 +33,12 @@ public class RestaurantController {
         return ResponseEntity.ok(restaurantService.findAll());
     }
 
+    // Declared before /{id} so the literal path always wins over the variable.
+    @GetMapping("/mine")
+    public ResponseEntity<List<RestaurantResponse>> findOwned() {
+        return ResponseEntity.ok(restaurantService.findOwned());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<RestaurantResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(restaurantService.findById(id));

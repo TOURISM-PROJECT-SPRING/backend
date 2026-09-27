@@ -9,6 +9,13 @@ public interface RestaurantService {
 
     List<RestaurantResponse> findAll();
 
+    /**
+     * Restaurants the calling owner actually owns. Kept separate from
+     * {@link #findAll()} because that one feeds the public browsing pages and
+     * must stay unscoped.
+     */
+    List<RestaurantResponse> findOwned();
+
     RestaurantResponse findById(Long id);
 
     List<RestaurantResponse> search(String keyword);

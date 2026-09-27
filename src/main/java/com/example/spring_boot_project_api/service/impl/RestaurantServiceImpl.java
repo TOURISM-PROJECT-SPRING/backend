@@ -47,13 +47,21 @@ public class RestaurantServiceImpl implements RestaurantService {
         return null;
     }
 
+    private boolean hasRoleNamed(Users u, String roleName) {
+        if (u == null || u.getUserRoles() == null) return false;
+        return u.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && roleName.equalsIgnoreCase(ur.getRole().getName()));
+    }
+
+    private boolean isAdmin(Users u) {
+        return hasRoleNamed(u, "ADMIN");
+    }
+
     private boolean isOwner(Users u) {
         if (u == null || u.getUserRoles() == null) return false;
-        boolean isAdmin = u.getUserRoles().stream()
-                .anyMatch(ur -> ur.getRole() != null && "ADMIN".equalsIgnoreCase(ur.getRole().getName()));
+        boolean isAdmin = isAdmin(u);
         if (isAdmin) return false;
-        return u.getUserRoles().stream()
-                .anyMatch(ur -> ur.getRole() != null && "OWNER".equalsIgnoreCase(ur.getRole().getName()));
+        return hasRoleNamed(u, "OWNER");
     }
 
     @Override
@@ -61,6 +69,28 @@ public class RestaurantServiceImpl implements RestaurantService {
     @Cacheable(cacheNames = "restaurants", key = "#root.methodName")
     public List<RestaurantResponse> findAll() {
         return RestaurantMapper.toResponseList(restaurantRepository.findAll());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RestaurantResponse> findOwned() {
+        Users caller = getAuthenticatedUser();
+        if (caller == null) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Authentication required");
+        }
+        // Admins oversee every business, so they see the full list; a plain
+        // owner only ever sees the restaurants assigned to them.
+        if (isAdmin(caller)) {
+            return RestaurantMapper.toResponseList(restaurantRepository.findAll());
+        }
+        if (!isOwner(caller)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Owner role required");
+        }
+        ownerAccessControlService.requireBusinessAccess(caller.getId(), "RESTAURANT");
+        return RestaurantMapper.toResponseList(
+                restaurantRepository.findByOwnerId(caller.getId()));
     }
 
     @Override
@@ -124,9 +154,7 @@ public class RestaurantServiceImpl implements RestaurantService {
         Users caller = getAuthenticatedUser();
         if (caller != null && isOwner(caller)) {
             ownerAccessControlService.requireBusinessAccess(caller.getId(), "RESTAURANT");
-            if (restaurant.getOwner() != null && !restaurant.getOwner().getId().equals(caller.getId())) {
-                throw new org.springframework.security.access.AccessDeniedException("You do not own this restaurant");
-            }
+            requireOwnership(restaurant, caller);
         }
 
         TourPlaces tourismPlace = tourismPlaceRepository.findById(request.getTourismPlaceId())
@@ -147,12 +175,21 @@ public class RestaurantServiceImpl implements RestaurantService {
         Users caller = getAuthenticatedUser();
         if (caller != null && isOwner(caller)) {
             ownerAccessControlService.requireBusinessAccess(caller.getId(), "RESTAURANT");
-            if (restaurant.getOwner() != null && !restaurant.getOwner().getId().equals(caller.getId())) {
-                throw new org.springframework.security.access.AccessDeniedException("You do not own this restaurant");
-            }
+            requireOwnership(restaurant, caller);
         }
 
         restaurantRepository.delete(restaurant);
+    }
+
+    // An owner may only touch their own records. A restaurant with no owner is
+    // treated as NOT claimable by a plain owner — otherwise the previous
+    // null-check let any owner edit or delete unowned seed data.
+    private void requireOwnership(Restaurants restaurant, Users caller) {
+        Long ownerId = restaurant.getOwner() != null ? restaurant.getOwner().getId() : null;
+        if (ownerId == null || !ownerId.equals(caller.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "You do not own this restaurant");
+        }
     }
 
     private void validateHours(LocalTime openTime, LocalTime closeTime) {

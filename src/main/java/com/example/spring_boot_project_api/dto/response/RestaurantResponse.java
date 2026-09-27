@@ -17,6 +17,10 @@ public class RestaurantResponse {
     private LocalTime closeTime;
     private Long tourismPlaceId;
     private String tourismPlaceName;
+    // Owner of the record. The owner console needs this to tell its own
+    // restaurants apart from everyone else's; null means unowned/seed data.
+    private Long ownerId;
+    private String ownerName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
