@@ -63,17 +63,19 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/social/connections", "/api/auth/social/facebook/link")
+                        .authenticated()
                         // public: authentication flow, API docs, payment callbacks,
                         // contact submission, newsletter subscription
                         .requestMatchers("/api/auth/register", "/api/auth/login",
                                 "/api/auth/forgot-password", "/api/auth/reset-password",
-                                "/api/auth/social/**",
                                 "/swagger-ui.html", "/swagger-ui/**",
                                 "/api-docs/**", "/v3/api-docs/**",
                                 "/api/payments/callback", "/api/payments/callback-form",
                                 "/api/v1/bakong/**", "/api/v1/ai/**",
                                 "/ws-tourism/**", "/api/bookings/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/social/{provider}").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/contact").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/newsletter/subscribe").permitAll()
 

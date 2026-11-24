@@ -14,7 +14,10 @@ import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -22,13 +25,18 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import com.example.spring_boot_project_api.config.SocialAuthConfig;
 import com.example.spring_boot_project_api.dto.request.ChangePasswordRequest;
+import com.example.spring_boot_project_api.dto.request.FacebookLinkRequest;
+import com.example.spring_boot_project_api.dto.response.ConnectedAccountsResponse;
 import com.example.spring_boot_project_api.dto.request.ForgotPasswordRequest;
 import com.example.spring_boot_project_api.dto.request.LoginRequest;
 import com.example.spring_boot_project_api.dto.request.ProfileUpdateRequest;
@@ -58,6 +66,7 @@ import com.example.spring_boot_project_api.security.TokenBlacklistService;
 import com.example.spring_boot_project_api.service.AuthService;
 import com.example.spring_boot_project_api.util.RoleNames;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -66,6 +75,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
+    private static final Duration FACEBOOK_LINK_WINDOW = Duration.ofMinutes(5);
     private static final String TOKEN_TYPE = "Bearer";
     private static final Map<String, String> SUPPORTED_PROVIDERS = Map.of(
             "google", "Google",
@@ -89,6 +99,8 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    private RestClient socialRestClient = SOCIAL_REST_CLIENT;
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
@@ -99,6 +111,10 @@ public class AuthServiceImpl implements AuthService {
     private final TokenBlacklistService tokenBlacklistService;
     private final SocialAuthConfig socialAuthConfig;
     private final SocialAccountRepository socialAccountRepository;
+    private final PlatformTransactionManager transactionManager;
+
+    @Value("${auth.dev-password-reset-enabled:false}")
+    private boolean devPasswordResetEnabled;
 
     @Value("${auth.reset-token-expiration-minutes:30}")
     private long resetTokenExpirationMinutes;
@@ -154,10 +170,9 @@ public class AuthServiceImpl implements AuthService {
                     new UsernamePasswordAuthenticationToken(
                             request.getUsername(), request.getPassword()));
             AppUserDetails principal = (AppUserDetails) authentication.getPrincipal();
-            Users user = userRepository.findByUsername(principal.getUsername())
-                    .or(() -> userRepository.findByEmail(principal.getUsername()))
+            Users user = userRepository.findById(principal.getId())
                     .orElseThrow(() -> new UnauthorizedException("Invalid username or password"));
-            return buildAuthResponse(user);
+            return buildAuthResponse(user, true);
         } catch (AuthenticationException ex) {
             throw new UnauthorizedException("Invalid username or password");
         }
@@ -194,6 +209,8 @@ public class AuthServiceImpl implements AuthService {
                 .map(SocialAccount::getUser)
                 .orElse(null);
 
+        boolean canLinkFacebook = user != null && normalizedProvider.equals("google")
+                && !isBlank(socialAuthConfig.getGoogleAudience());
         if (user == null) {
             Users existingByEmail = email == null ? null
                     : userRepository.findByEmailIgnoreCase(email).orElse(null);
@@ -203,32 +220,104 @@ public class AuthServiceImpl implements AuthService {
                 throw new IllegalArgumentException(
                         "This email is already registered. Sign in to the existing account before linking Facebook.");
             }
+            if (normalizedProvider.equals("google") && existingByEmail != null
+                    && !social.emailExplicitlyVerified()) {
+                throw new UnauthorizedException("Google must verify your email to sign in to the existing account");
+            }
             user = existingByEmail;
             if (user == null) {
                 user = createSocialUser(normalizedProvider, displayName, social, email);
             }
             linkSocialAccount(normalizedProvider, providerUserId, user);
         }
-        return buildAuthResponse(user);
+        return buildAuthResponse(user, canLinkFacebook);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ConnectedAccountsResponse connectedAccounts() {
+        AppUserDetails principal = currentPrincipal();
+        Instant deadline = facebookLinkDeadline(principal);
+        return new ConnectedAccountsResponse(socialAccountRepository.findProvidersByUserId(principal.getId()), deadline);
+    }
+
+    @Override
+    public ConnectedAccountsResponse linkFacebook(FacebookLinkRequest request) {
+        AppUserDetails principal = currentPrincipal();
+        Instant deadline = facebookLinkDeadline(principal);
+        if (deadline == null) {
+            throw new AccessDeniedException("Sign in again with your password or connected Google account before linking Facebook.");
+        }
+
+        String facebookId = verifySocialToken("facebook", request.token().trim(), null).id();
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return transaction.execute(status -> persistFacebookLink(principal.getId(), facebookId, deadline));
+    }
+
+    private ConnectedAccountsResponse persistFacebookLink(Long userId, String facebookId, Instant deadline) {
+        socialAccountRepository.lockUserForLinking(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        List<String> providers = socialAccountRepository.findProvidersByUserId(userId);
+        if (!Instant.now().isBefore(deadline)) {
+            throw new AccessDeniedException("Your recent sign-in expired. Sign in again before linking Facebook.");
+        }
+
+        if (!providers.contains("facebook") && socialAccountRepository.insertFacebookLink(userId, facebookId) == 1) {
+            return new ConnectedAccountsResponse(socialAccountRepository.findProvidersByUserId(userId), deadline);
+        }
+        boolean alreadyLinkedHere = socialAccountRepository.findByProviderAndProviderUserId("facebook", facebookId)
+                .map(account -> userId.equals(account.getUser().getId()))
+                .orElse(false);
+        if (alreadyLinkedHere) {
+            return new ConnectedAccountsResponse(providers, deadline);
+        }
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "A Facebook account is already linked");
+    }
+
+    private Instant facebookLinkDeadline(AppUserDetails principal) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!(authentication.getCredentials() instanceof String token)) {
+            throw new UnauthorizedException("Authentication required");
+        }
+        try {
+            if (!principal.getId().equals(jwtService.extractUserId(token))) {
+                throw new UnauthorizedException("Authentication required");
+            }
+            Long authenticatedAt = jwtService.extractFacebookLinkAuthenticatedAt(token);
+            Instant now = Instant.now();
+            if (authenticatedAt == null || authenticatedAt > now.getEpochSecond()) {
+                return null;
+            }
+            Instant deadline = Instant.ofEpochSecond(authenticatedAt).plus(FACEBOOK_LINK_WINDOW);
+            return now.isBefore(deadline) ? deadline : null;
+        } catch (ExpiredJwtException ex) {
+            throw new UnauthorizedException("Authentication required");
+        }
     }
 
     private SocialUser verifySocialToken(String provider, String token, String code) {
         try {
             if (provider.equals("google")) {
-                String url = socialAuthConfig.getGoogleTokenInfoUrl() + "?access_token=" + token;
-                Map<String, Object> info = SOCIAL_REST_CLIENT.get().uri(url)
+                if (token == null) {
+                    throw new UnauthorizedException("Google access token is required");
+                }
+                Map<String, Object> info = socialRestClient.get()
+                        .uri(socialAuthConfig.getGoogleTokenInfoUrl() + "?access_token={token}", token)
                         .retrieve().body(Map.class);
                 String audience = socialAuthConfig.getGoogleAudience();
                 if (info != null && audience != null && !audience.isBlank()
                         && !audience.equals(stringOf(info.get("aud")))) {
                     throw new UnauthorizedException("Google token was issued for a different client");
                 }
+                String emailVerified = stringOf(info == null ? null : info.get("email_verified"));
                 return new SocialUser(
                         stringOf(info == null ? null : info.get("sub")),
                         stringOf(info == null ? null : info.get("email")),
                         stringOf(info == null ? null : info.get("name")),
-                        !"false".equalsIgnoreCase(stringOf(info == null ? null : info.get("email_verified"))),
-                        null);
+                        !"false".equalsIgnoreCase(emailVerified),
+                        null,
+                        "true".equalsIgnoreCase(emailVerified));
             }
             if (provider.equals("facebook")) {
                 if (token == null) {
@@ -256,13 +345,14 @@ public class AuthServiceImpl implements AuthService {
                                 ? stringOf(profile.get("name"))
                                 : login,
                         email != null,
-                        login);
+                        login,
+                        email != null);
             }
             throw new UnauthorizedException("Unsupported social provider: " + provider);
         } catch (HttpClientErrorException ex) {
             throw new UnauthorizedException("The social token is invalid or expired");
         } catch (RestClientException ex) {
-            throw new UnauthorizedException("Could not verify your social account: " + ex.getMessage());
+            throw new UnauthorizedException("Could not verify your social account");
         }
     }
 
@@ -274,32 +364,34 @@ public class AuthServiceImpl implements AuthService {
 
         // Meta /debug_token requires an app access token and returns the app ID,
         // validity and user ID of the user access token.
-        Map<?, ?> inspection = SOCIAL_REST_CLIENT.get()
+        Map<?, ?> inspection = socialRestClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .scheme("https")
                         .host("graph.facebook.com")
                         .path("/" + facebookGraphVersion + "/debug_token")
-                        .queryParam("input_token", userAccessToken)
-                        .queryParam("access_token", facebookAppId + "|" + facebookAppSecret)
-                        .build())
+                        .queryParam("input_token", "{token}")
+                        .build(userAccessToken))
+                .headers(headers -> headers.setBearerAuth(facebookAppId + "|" + facebookAppSecret))
                 .retrieve().body(Map.class);
 
         if (inspection == null || !(inspection.get("data") instanceof Map<?, ?> data)) {
             throw new UnauthorizedException("Facebook token verification failed");
         }
-        if (!Boolean.TRUE.equals(data.get("is_valid"))) {
+        if (!Boolean.TRUE.equals(data.get("is_valid"))
+                || isExpiredFacebookTimestamp(data.get("expires_at"))
+                || isExpiredFacebookTimestamp(data.get("data_access_expires_at"))) {
             throw new UnauthorizedException("Facebook access token is invalid");
         }
         if (!facebookAppId.equals(stringOf(data.get("app_id")))) {
             throw new UnauthorizedException("Facebook token belongs to a different application");
         }
         String verifiedUserId = trimToNull(stringOf(data.get("user_id")));
-        if (verifiedUserId == null) {
+        if (verifiedUserId == null || !verifiedUserId.matches("[0-9]{1,255}")) {
             throw new UnauthorizedException("Facebook user id is missing");
         }
 
         // Fetch only basic fields granted to the application. Email may be absent.
-        Map<?, ?> profile = SOCIAL_REST_CLIENT.get()
+        Map<?, ?> profile = socialRestClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .scheme("https")
                         .host("graph.facebook.com")
@@ -317,7 +409,13 @@ public class AuthServiceImpl implements AuthService {
                 normalizeEmail(stringOf(profile.get("email"))),
                 trimToNull(stringOf(profile.get("name"))),
                 false,
-                null);
+                null,
+                false);
+    }
+
+    private static boolean isExpiredFacebookTimestamp(Object timestamp) {
+        return timestamp instanceof Number seconds && seconds.longValue() != 0
+                && seconds.longValue() <= Instant.now().getEpochSecond();
     }
 
     private String exchangeGithubCode(String code) {
@@ -327,7 +425,7 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalStateException(
                     "GitHub login is not configured (set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET)");
         }
-        Map<String, Object> body = SOCIAL_REST_CLIENT.post()
+        Map<String, Object> body = socialRestClient.post()
                 .uri(socialAuthConfig.getGithubTokenUrl())
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
@@ -343,7 +441,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private Map<String, Object> githubGet(String accessToken, String path) {
-        return SOCIAL_REST_CLIENT.get()
+        return socialRestClient.get()
                 .uri(socialAuthConfig.getGithubApiUrl() + path)
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Accept", "application/vnd.github+json")
@@ -351,7 +449,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private String primaryVerifiedGithubEmail(String accessToken) {
-        List<Map<String, Object>> emails = SOCIAL_REST_CLIENT.get()
+        List<Map<String, Object>> emails = socialRestClient.get()
                 .uri(socialAuthConfig.getGithubApiUrl() + "/user/emails")
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Accept", "application/vnd.github+json")
@@ -461,7 +559,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private record SocialUser(String id, String email, String name, boolean emailVerified,
-                              String usernameHint) {
+                              String usernameHint, boolean emailExplicitlyVerified) {
     }
 
     @Override
@@ -484,6 +582,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
+        requireDevPasswordReset();
         Users user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "No account found with this email"));
@@ -507,6 +606,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public MessageResponse resetPassword(ResetPasswordRequest request) {
+        requireDevPasswordReset();
         PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid or expired reset token"));
         if (resetToken.isUsed()) {
@@ -524,6 +624,12 @@ public class AuthServiceImpl implements AuthService {
         passwordResetTokenRepository.save(resetToken);
 
         return new MessageResponse("Password has been reset successfully");
+    }
+
+    private void requireDevPasswordReset() {
+        if (!devPasswordResetEnabled) {
+            throw new AccessDeniedException("Password reset is unavailable");
+        }
     }
 
     @Override
@@ -565,7 +671,13 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private AuthResponse buildAuthResponse(Users user) {
-        String token = jwtService.generateToken(user);
+        return buildAuthResponse(user, false);
+    }
+
+    private AuthResponse buildAuthResponse(Users user, boolean canLinkFacebook) {
+        String token = canLinkFacebook
+                ? jwtService.generateRecentlyAuthenticatedToken(user)
+                : jwtService.generateToken(user);
         Instant expiresAt = jwtService.extractExpiration(token).toInstant();
         return AuthResponse.builder()
                 .accessToken(token)
@@ -575,12 +687,17 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    private Users currentUser() {
+    private AppUserDetails currentPrincipal() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !(authentication.getPrincipal() instanceof AppUserDetails)) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof AppUserDetails principal)) {
             throw new UnauthorizedException("Authentication required");
         }
-        AppUserDetails principal = (AppUserDetails) authentication.getPrincipal();
+        return principal;
+    }
+
+    private Users currentUser() {
+        AppUserDetails principal = currentPrincipal();
         return userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", principal.getId()));
     }

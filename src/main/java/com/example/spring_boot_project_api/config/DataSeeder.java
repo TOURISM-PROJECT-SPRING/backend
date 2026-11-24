@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -122,11 +123,17 @@ public class DataSeeder implements CommandLineRunner {
     private final NotificationRepository notificationRepository;
     private final ContactMessageRepository contactMessageRepository;
 
+    @Value("${app.seed-demo-data:false}")
+    private boolean seedDemoData;
+
     @Override
     @Transactional
     public void run(String... args) {
         seedRoles();
         seedRoleMetadata();
+        if (!seedDemoData) {
+            return;
+        }
         seedDefaultAdmin();
         seedDefaultOwner();
         seedDefaultTourist();

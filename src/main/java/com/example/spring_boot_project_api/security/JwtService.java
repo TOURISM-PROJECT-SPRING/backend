@@ -1,6 +1,7 @@
 package com.example.spring_boot_project_api.security;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,6 +21,8 @@ import io.jsonwebtoken.security.Keys;
 
 @Component
 public class JwtService {
+
+    private static final String FACEBOOK_LINK_AUTH_AT = "facebook_link_auth_at";
 
     @Value("${jwt.secret}")
     private String secret;
@@ -41,10 +44,24 @@ public class JwtService {
     }
 
     public String generateToken(Users user) {
+        return generateToken(user, userClaims(user));
+    }
+
+    public String generateRecentlyAuthenticatedToken(Users user) {
+        Map<String, Object> claims = userClaims(user);
+        claims.put(FACEBOOK_LINK_AUTH_AT, Instant.now().getEpochSecond());
+        return generateToken(user, claims);
+    }
+
+    public Long extractFacebookLinkAuthenticatedAt(String token) {
+        return extractClaim(token, claims -> claims.get(FACEBOOK_LINK_AUTH_AT, Long.class));
+    }
+
+    private Map<String, Object> userClaims(Users user) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("fullname", user.getFullname());
-        return generateToken(user, claims);
+        return claims;
     }
 
     public String extractUsername(String token) {

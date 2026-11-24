@@ -38,9 +38,19 @@ Spring Boot REST API.
 
 Swagger UI is available at `/swagger-ui.html` once the app is running.
 
-Note: `SpringBootProjectApiApplicationTests.contextLoads` bootstraps the full Spring context and
-needs a live PostgreSQL instance reachable with the credentials in your `.env`. The Mockito unit
-tests in `src/test/java/.../service/` run without a database.
+Database-backed tests are opt-in. Create a disposable local PostgreSQL database and login role
+both named `tourism_link_test`, using `tourism_link_test` as the disposable role password.
+The only required environment variable is `TOURISM_LINK_TEST_DB`. Run the Facebook integration
+suite from the backend directory once the disposable server is listening locally:
+
+```bash
+TOURISM_LINK_TEST_DB=jdbc:postgresql://127.0.0.1:55439/tourism_link_test ./mvnw -Dtest=FacebookLinkPostgresTest test
+```
+
+Use the port of your disposable instance. The suite uses its dedicated test credentials, initializes
+the schema, writes test accounts, and mocks Meta and the token blacklist. To include the application
+context smoke test, run `./mvnw test` with the same environment variable. Database-free tests run
+without the variable.
 
 ## Environment variables
 
@@ -177,14 +187,15 @@ Base package `api`; JSON everywhere unless noted. Standard per-resource CRUD con
   Note: a single `requestMatchers` accepts **one** `HttpMethod` + varargs patterns (Spring
   Security 7); for multi-method rules declare one rule per method, in the same order.
 - **Roles:** stored in the `roles` table, joined via `user_roles`. `config/DataSeeder`
-  (a `CommandLineRunner`) seeds `ADMIN`, `OWNER`, `TOURIST` plus default accounts
+  (a `CommandLineRunner`) seeds `ADMIN`, `OWNER`, and `TOURIST`. Set `SEED_DEMO_DATA=true`
+  only for local development to also seed demo content and default accounts
   `admin/admin123`, `owner/owner123`, `tourist/tourist123` (and a sample
   `BusinesssOwnerProfiles` for the owner). New registrations always get `TOURIST`
   (see `util/RoleNames`).
 - **Logout/token handling:** `security/TokenBlacklistService` revokes a token by storing it in
   Redis (`blacklisted:token:<jwt>`) until its natural expiry; Redis outages degrade gracefully to
   stateless expiry only. Never store tokens server-side otherwise.
-- **Password flow:** `forgot-password` returns a UUID token (dev-mode: returned in JSON, no email);
+- **Password flow:** With `DEV_PASSWORD_RESET_ENABLED=true` in local development, `forgot-password` returns a UUID token in JSON without email delivery;
   `reset-password` consumes it (30-min expiry, one-time use via `model/PasswordResetToken`);
   `change-password` requires the current password and an authenticated request.
 - Note for Spring Security 7: `DaoAuthenticationProvider` has **no** no-arg constructor — use

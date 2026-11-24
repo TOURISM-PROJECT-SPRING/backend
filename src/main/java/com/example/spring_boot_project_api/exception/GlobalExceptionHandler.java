@@ -11,6 +11,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.MissingPathVariableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -146,8 +147,18 @@ public class GlobalExceptionHandler {
         body.put("timestamp", LocalDateTime.now());
         body.put("status", HttpStatus.BAD_REQUEST.value());
         body.put("error", "Bad Request");
-        body.put("message", ex.getMessage());
+        body.put("message", ex instanceof HttpMessageNotReadableException
+                ? "The request body could not be read" : ex.getMessage());
         return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode()).body(Map.of(
+                "timestamp", LocalDateTime.now(),
+                "status", ex.getStatusCode().value(),
+                "error", HttpStatus.valueOf(ex.getStatusCode().value()).getReasonPhrase(),
+                "message", ex.getReason() == null ? "Request failed" : ex.getReason()));
     }
 
     @ExceptionHandler(Exception.class)

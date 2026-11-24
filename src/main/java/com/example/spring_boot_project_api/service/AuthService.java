@@ -1,6 +1,8 @@
 package com.example.spring_boot_project_api.service;
 
 import com.example.spring_boot_project_api.dto.request.ChangePasswordRequest;
+import com.example.spring_boot_project_api.dto.request.FacebookLinkRequest;
+import com.example.spring_boot_project_api.dto.response.ConnectedAccountsResponse;
 import com.example.spring_boot_project_api.dto.request.ForgotPasswordRequest;
 import com.example.spring_boot_project_api.dto.request.LoginRequest;
 import com.example.spring_boot_project_api.dto.request.ProfileUpdateRequest;
@@ -18,6 +20,10 @@ public interface AuthService {
     AuthResponse login(LoginRequest request);
 
     AuthResponse loginWithSocial(String provider, SocialLoginRequest request);
+
+    ConnectedAccountsResponse connectedAccounts();
+
+    ConnectedAccountsResponse linkFacebook(FacebookLinkRequest request);
 
     AuthResponse updateProfile(ProfileUpdateRequest request);
 
