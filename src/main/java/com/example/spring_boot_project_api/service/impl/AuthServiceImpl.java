@@ -69,7 +69,8 @@ public class AuthServiceImpl implements AuthService {
     private static final String TOKEN_TYPE = "Bearer";
     private static final Map<String, String> SUPPORTED_PROVIDERS = Map.of(
             "google", "Google",
-            "github", "GitHub");
+            "github", "GitHub",
+            "facebook", "Facebook");
 
     // RestClient is instantiated directly (verified against the provider APIs with
     // a short timeout) rather than injected, so it never collides with the
@@ -101,6 +102,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Value("${auth.reset-token-expiration-minutes:30}")
     private long resetTokenExpirationMinutes;
+
+    @Value("${social.facebook.app-id:}")
+    private String facebookAppId;
+
+    @Value("${social.facebook.app-secret:}")
+    private String facebookAppSecret;
+
+    @Value("${social.facebook.graph-version:v24.0}")
+    private String facebookGraphVersion;
 
     @Override
     @Transactional
@@ -185,7 +195,15 @@ public class AuthServiceImpl implements AuthService {
                 .orElse(null);
 
         if (user == null) {
-            user = email == null ? null : userRepository.findByEmailIgnoreCase(email).orElse(null);
+            Users existingByEmail = email == null ? null
+                    : userRepository.findByEmailIgnoreCase(email).orElse(null);
+            // A Facebook profile email is not sufficient proof of ownership of an
+            // existing local account. Require explicit account linking instead.
+            if (normalizedProvider.equals("facebook") && existingByEmail != null) {
+                throw new IllegalArgumentException(
+                        "This email is already registered. Sign in to the existing account before linking Facebook.");
+            }
+            user = existingByEmail;
             if (user == null) {
                 user = createSocialUser(normalizedProvider, displayName, social, email);
             }
@@ -211,6 +229,12 @@ public class AuthServiceImpl implements AuthService {
                         stringOf(info == null ? null : info.get("name")),
                         !"false".equalsIgnoreCase(stringOf(info == null ? null : info.get("email_verified"))),
                         null);
+            }
+            if (provider.equals("facebook")) {
+                if (token == null) {
+                    throw new UnauthorizedException("Facebook access token is required");
+                }
+                return verifyFacebookToken(token);
             }
             if (provider.equals("github")) {
                 String accessToken = exchangeGithubCode(code);
@@ -240,6 +264,60 @@ public class AuthServiceImpl implements AuthService {
         } catch (RestClientException ex) {
             throw new UnauthorizedException("Could not verify your social account: " + ex.getMessage());
         }
+    }
+
+    /** Verify Facebook access token's validity and app binding before using profile fields. */
+    private SocialUser verifyFacebookToken(String userAccessToken) {
+        if (isBlank(facebookAppId) || isBlank(facebookAppSecret)) {
+            throw new IllegalStateException("Facebook login is not configured");
+        }
+
+        // Meta /debug_token requires an app access token and returns the app ID,
+        // validity and user ID of the user access token.
+        Map<?, ?> inspection = SOCIAL_REST_CLIENT.get()
+                .uri(uriBuilder -> uriBuilder
+                        .scheme("https")
+                        .host("graph.facebook.com")
+                        .path("/" + facebookGraphVersion + "/debug_token")
+                        .queryParam("input_token", userAccessToken)
+                        .queryParam("access_token", facebookAppId + "|" + facebookAppSecret)
+                        .build())
+                .retrieve().body(Map.class);
+
+        if (inspection == null || !(inspection.get("data") instanceof Map<?, ?> data)) {
+            throw new UnauthorizedException("Facebook token verification failed");
+        }
+        if (!Boolean.TRUE.equals(data.get("is_valid"))) {
+            throw new UnauthorizedException("Facebook access token is invalid");
+        }
+        if (!facebookAppId.equals(stringOf(data.get("app_id")))) {
+            throw new UnauthorizedException("Facebook token belongs to a different application");
+        }
+        String verifiedUserId = trimToNull(stringOf(data.get("user_id")));
+        if (verifiedUserId == null) {
+            throw new UnauthorizedException("Facebook user id is missing");
+        }
+
+        // Fetch only basic fields granted to the application. Email may be absent.
+        Map<?, ?> profile = SOCIAL_REST_CLIENT.get()
+                .uri(uriBuilder -> uriBuilder
+                        .scheme("https")
+                        .host("graph.facebook.com")
+                        .path("/" + facebookGraphVersion + "/me")
+                        .queryParam("fields", "id,name,email")
+                        .build())
+                .headers(headers -> headers.setBearerAuth(userAccessToken))
+                .retrieve().body(Map.class);
+
+        if (profile == null || !verifiedUserId.equals(stringOf(profile.get("id")))) {
+            throw new UnauthorizedException("Facebook user identity mismatch");
+        }
+        return new SocialUser(
+                verifiedUserId,
+                normalizeEmail(stringOf(profile.get("email"))),
+                trimToNull(stringOf(profile.get("name"))),
+                false,
+                null);
     }
 
     private String exchangeGithubCode(String code) {
